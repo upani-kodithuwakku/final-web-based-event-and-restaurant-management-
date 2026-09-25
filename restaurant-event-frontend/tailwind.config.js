@@ -1,0 +1,1 @@
+export default { content: ['./index.html', './src/**/*.{ts,tsx}'], theme: { extend: { colors: { rausch: '#FF5A5F', babu: '#00A699', arches: '#FC642D' }, fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } }, plugins: [] };

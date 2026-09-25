@@ -1,0 +1,20 @@
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+target/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+*.log
+
+# Editor and macOS files
+.idea/
+*.iml
+.DS_Store
