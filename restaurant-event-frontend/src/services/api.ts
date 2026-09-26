@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { BookingInput, Reservation, Table, User } from '../types';
+import type { AdminBookingInput, AdminUpdateInput, BookingInput, Reservation, Table, User } from '../types';
 export const api = axios.create({ baseURL: import.meta.env.VITE_API_BASE_URL || '/api', timeout: 12000 });
 api.interceptors.request.use(config => { const token = sessionStorage.getItem('gather-token'); if (token) config.headers.Authorization = `Bearer ${token}`; return config; });
 export const errorMessage = (e: unknown) => axios.isAxiosError(e) ? e.response?.data?.message || (e.response?.status === 401 ? 'Please sign in to continue.' : 'Unable to reach the server. Please try again.') : e instanceof Error ? e.message : 'Something went wrong.';
@@ -14,6 +14,12 @@ export const reservationApi = {
  daily: async (date: string) => (await api.get<{data: Reservation[]}>('/admin/reservations', {params: {date}})).data.data,
  action: async (id: number, action: string) => (await api.patch(`/admin/reservations/${id}/${action}`)).data.data as Reservation,
  tableStatus: async (id: number, status: string) => (await api.patch(`/admin/tables/${id}/status`, {status})).data.data as Table,
+ table: async (id: number) => (await api.get<{data: Table}>(`/admin/tables/${id}`)).data.data,
+ deleteTable: async (id: number) => { await api.delete(`/admin/tables/${id}`); },
+ adminGet: async (id: number) => (await api.get<{data: Reservation}>(`/admin/reservations/${id}`)).data.data,
+ adminCreate: async (input: AdminBookingInput) => (await api.post<{data: Reservation}>('/admin/reservations', input)).data.data,
+ adminUpdate: async (id: number, input: AdminUpdateInput) => (await api.put<{data: Reservation}>(`/admin/reservations/${id}`, input)).data.data,
+ adminCancel: async (id: number, reason: string) => (await api.patch<{data: Reservation}>(`/admin/reservations/${id}/cancel`, {reason})).data.data,
 };
 export const userApi = {
  me: async () => (await api.get<{data: User}>('/users/me')).data.data,
