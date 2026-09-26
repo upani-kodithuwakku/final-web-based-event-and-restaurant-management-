@@ -1,0 +1,9 @@
+export type Role = 'CUSTOMER' | 'ADMIN' | 'MANAGER' | 'WAITER' | 'KITCHEN_STAFF' | 'EVENT_COORDINATOR' | 'CASHIER' | 'INVENTORY_MANAGER';
+export type Table = { id: number; tableNumber: string; capacity: number; location: string; currentStatus: string; isActive: boolean };
+export type Reservation = { id: number; bookingReference: string; table: Table; reservationDate: string; startTime: string; guestCount: number; status: string; contactName: string; contactPhone: string; specialRequest?: string };
+export type BookingInput = { tableId: number; reservationDate: string; startTime: string; guestCount: number; seatingPreference?: string; specialRequest?: string; contactName: string; contactPhone: string };
+export type User = { userId: number; fullName: string; email: string; roles: Role[]; token?: string; phone?: string };
+export type MenuItem = { id: number; name: string; description: string; category: string; price: number; image: string; tag?: string };
+export type Order = { id: number; reference: string; items: { item: MenuItem; quantity: number }[]; total: number; status: string; paid: boolean; createdAt: string };
+export type EventBookingStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+export type EventBooking = { id: number; name: string; date: string; guests: number; package: string; status: EventBookingStatus; requests: string };
