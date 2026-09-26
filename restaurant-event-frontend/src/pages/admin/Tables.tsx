@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PlusIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { PlusIcon, PencilSquareIcon, TrashIcon } from '@heroicons/react/24/outline';
 import { useApp } from '../../context/AppContext';
 import { Badge, Modal, SectionHeading } from '../../components/UI';
 import { errorMessage, reservationApi } from '../../services/api';
@@ -50,6 +50,16 @@ export default function AdminTables() {
     finally { setStatusBusy(null); }
   };
 
+  const deactivate = async (t: Table) => {
+    if (!window.confirm(`Deactivate table ${t.tableNumber}? It will no longer be bookable.`)) return;
+    setStatusBusy(t.id); setErr('');
+    try {
+      await reservationApi.deleteTable(t.id);
+      setTables(all => all.map(x => x.id === t.id ? { ...x, isActive: false } : x));
+    } catch (e) { setErr(errorMessage(e)); }
+    finally { setStatusBusy(null); }
+  };
+
   return (
     <div className="page-enter">
       <SectionHeading
@@ -74,7 +84,8 @@ export default function AdminTables() {
               <select value={t.currentStatus} disabled={statusBusy === t.id} onChange={e => changeStatus(t, e.target.value)} style={{ padding: '6px 10px', border: '1.5px solid var(--gray-200)', borderRadius: 'var(--radius-sm)', fontSize: 13, cursor: 'pointer', background: 'var(--white)' }}>
                 {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
               </select>
-              <button className="icon-button" onClick={() => openEdit(t)} title="Edit table"><PencilSquareIcon style={{ width: 16, height: 16 }} /></button>
+              <button className="icon-button" onClick={() => openEdit(t)} title="Edit table" disabled={!t.isActive}><PencilSquareIcon style={{ width: 16, height: 16 }} /></button>
+              <button className="icon-button" onClick={() => deactivate(t)} title="Deactivate table" disabled={!t.isActive || statusBusy === t.id}><TrashIcon style={{ width: 16, height: 16 }} /></button>
             </div>
           </div>
         ))}
