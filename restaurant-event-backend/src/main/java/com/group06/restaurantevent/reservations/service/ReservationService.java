@@ -10,6 +10,7 @@ import com.group06.restaurantevent.common.exception.ForbiddenException;
 import com.group06.restaurantevent.common.exception.ResourceNotFoundException;
 import com.group06.restaurantevent.notifications.service.NotificationFactory;
 import com.group06.restaurantevent.reservations.dto.request.AdminCreateReservationRequest;
+import com.group06.restaurantevent.reservations.dto.request.AdminUpdateReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.CancelReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.CreateReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.UpdateReservationRequest;
@@ -163,38 +164,7 @@ public class ReservationService {
         if (!reservation.getCustomer().getId().equals(customer.getId())) {
             throw new ForbiddenException("You do not have access to this reservation");
         }
-        if (reservation.getStatus() != ReservationStatus.CONFIRMED && reservation.getStatus() != ReservationStatus.PENDING) {
-            throw new BadRequestException("Only PENDING or CONFIRMED reservations can be modified");
-        }
-        if (reservation.getReservationDate().isBefore(LocalDate.now())) {
-            throw new BadRequestException("Cannot modify a past reservation");
-        }
-
-        LocalDate newDate = request.getReservationDate() != null ? request.getReservationDate() : reservation.getReservationDate();
-        LocalTime newStart = request.getStartTime() != null ? request.getStartTime() : reservation.getStartTime();
-        LocalTime newEnd = newStart.plusMinutes(defaultDurationMinutes);
-        int newGuests = request.getGuestCount() != null ? request.getGuestCount() : reservation.getGuestCount();
-
-        if (reservation.getTable().getCapacity() < newGuests) {
-            throw new BadRequestException("Table capacity insufficient for updated guest count");
-        }
-
-        List<TableReservation> overlapping = reservationRepository.findOverlappingExcluding(
-                reservation.getTable().getId(), newDate, newStart, newEnd, id);
-        if (!overlapping.isEmpty()) {
-            throw new ConflictException("Updated time slot conflicts with an existing reservation");
-        }
-
-        reservation.setReservationDate(newDate);
-        reservation.setStartTime(newStart);
-        reservation.setEndTime(newEnd);
-        reservation.setGuestCount(newGuests);
-        if (request.getSeatingPreference() != null) reservation.setSeatingPreference(request.getSeatingPreference());
-        if (request.getSpecialRequest() != null) reservation.setSpecialRequest(request.getSpecialRequest());
-        if (request.getContactName() != null) reservation.setContactName(request.getContactName());
-        if (request.getContactPhone() != null) reservation.setContactPhone(request.getContactPhone());
-
-        return toResponse(reservationRepository.save(reservation));
+        return toResponse(applyUpdate(reservation, request, null));
     }
 
     @Transactional
@@ -205,18 +175,71 @@ public class ReservationService {
         if (!reservation.getCustomer().getId().equals(customer.getId())) {
             throw new ForbiddenException("You do not have access to this reservation");
         }
+        return toResponse(applyCancel(reservation, request.getReason()));
+    }
+
+    /** Shared by the customer and staff edit flows so both enforce the same rules. */
+    private TableReservation applyUpdate(TableReservation reservation, UpdateReservationRequest request, Long newTableId) {
+        if (reservation.getStatus() != ReservationStatus.CONFIRMED && reservation.getStatus() != ReservationStatus.PENDING) {
+            throw new BadRequestException("Only PENDING or CONFIRMED reservations can be modified");
+        }
+        if (reservation.getReservationDate().isBefore(LocalDate.now())) {
+            throw new BadRequestException("Cannot modify a past reservation");
+        }
+
+        RestaurantTable table = reservation.getTable();
+        if (newTableId != null && !newTableId.equals(table.getId())) {
+            table = tableService.findActiveById(newTableId);
+            if (table.getCurrentStatus() == TableStatus.OUT_OF_SERVICE) {
+                throw new BadRequestException("Table is out of service and cannot be reserved");
+            }
+        }
+
+        LocalDate newDate = request.getReservationDate() != null ? request.getReservationDate() : reservation.getReservationDate();
+        LocalTime newStart = request.getStartTime() != null ? request.getStartTime() : reservation.getStartTime();
+        LocalTime newEnd = newStart.plusMinutes(defaultDurationMinutes);
+        int newGuests = request.getGuestCount() != null ? request.getGuestCount() : reservation.getGuestCount();
+
+        boolean timeChanged = !newDate.equals(reservation.getReservationDate()) || !newStart.equals(reservation.getStartTime());
+        if (timeChanged && LocalDateTime.of(newDate, newStart).isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Reservation cannot be moved to a past time");
+        }
+        if (table.getCapacity() < newGuests) {
+            throw new BadRequestException("Table capacity insufficient for updated guest count");
+        }
+
+        List<TableReservation> overlapping = reservationRepository.findOverlappingExcluding(
+                table.getId(), newDate, newStart, newEnd, reservation.getId());
+        if (!overlapping.isEmpty()) {
+            throw new ConflictException("Updated time slot conflicts with an existing reservation");
+        }
+
+        reservation.setTable(table);
+        reservation.setReservationDate(newDate);
+        reservation.setStartTime(newStart);
+        reservation.setEndTime(newEnd);
+        reservation.setGuestCount(newGuests);
+        if (request.getSeatingPreference() != null) reservation.setSeatingPreference(request.getSeatingPreference());
+        if (request.getSpecialRequest() != null) reservation.setSpecialRequest(request.getSpecialRequest());
+        if (request.getContactName() != null) reservation.setContactName(request.getContactName());
+        if (request.getContactPhone() != null) reservation.setContactPhone(request.getContactPhone());
+
+        return reservationRepository.save(reservation);
+    }
+
+    private TableReservation applyCancel(TableReservation reservation, String reason) {
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
             throw new BadRequestException("Reservation is already cancelled");
         }
-        if (reservation.getStatus() == ReservationStatus.COMPLETED || reservation.getStatus() == ReservationStatus.CHECKED_IN) {
-            throw new BadRequestException("Cannot cancel a completed or checked-in reservation");
+        if (reservation.getStatus() == ReservationStatus.COMPLETED || reservation.getStatus() == ReservationStatus.CHECKED_IN
+                || reservation.getStatus() == ReservationStatus.NO_SHOW) {
+            throw new BadRequestException("Cannot cancel a completed, checked-in or no-show reservation");
         }
-
         reservation.setStatus(ReservationStatus.CANCELLED);
-        reservation.setCancelReason(request.getReason());
+        reservation.setCancelReason(reason);
         reservationRepository.save(reservation);
-        notificationFactory.reservationCancelled(customer, reservation.getBookingReference());
-        return toResponse(reservation);
+        notificationFactory.reservationCancelled(reservation.getCustomer(), reservation.getBookingReference());
+        return reservation;
     }
 
     // ---- Staff endpoints ----
@@ -231,6 +254,24 @@ public class ReservationService {
 
     public ReservationResponse getReservation(Long id) {
         return toResponse(findById(id));
+    }
+
+    @Transactional
+    public ReservationResponse updateReservationAsStaff(Long id, String staffEmail, AdminUpdateReservationRequest request) {
+        TableReservation reservation = findById(id);
+        String before = summary(toResponse(reservation));
+        ReservationResponse updated = toResponse(applyUpdate(reservation, request, request.getTableId()));
+        audit(staffEmail, "RESERVATION_UPDATED_BY_STAFF", id, before, summary(updated));
+        return updated;
+    }
+
+    @Transactional
+    public ReservationResponse cancelReservationAsStaff(Long id, String staffEmail, CancelReservationRequest request) {
+        TableReservation reservation = findById(id);
+        String before = summary(toResponse(reservation));
+        ReservationResponse cancelled = toResponse(applyCancel(reservation, request.getReason()));
+        audit(staffEmail, "RESERVATION_CANCELLED_BY_STAFF", id, before, summary(cancelled));
+        return cancelled;
     }
 
     @Transactional

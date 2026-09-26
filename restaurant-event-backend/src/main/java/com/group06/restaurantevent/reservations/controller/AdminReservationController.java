@@ -3,6 +3,8 @@ package com.group06.restaurantevent.reservations.controller;
 import com.group06.restaurantevent.common.enums.ReservationStatus;
 import com.group06.restaurantevent.common.response.ApiResponse;
 import com.group06.restaurantevent.reservations.dto.request.AdminCreateReservationRequest;
+import com.group06.restaurantevent.reservations.dto.request.AdminUpdateReservationRequest;
+import com.group06.restaurantevent.reservations.dto.request.CancelReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.CreateTableRequest;
 import com.group06.restaurantevent.reservations.dto.request.UpdateTableStatusRequest;
 import com.group06.restaurantevent.reservations.dto.response.ReservationResponse;
@@ -107,6 +109,27 @@ public class AdminReservationController {
     @Operation(summary = "Get a reservation by id")
     public ResponseEntity<ApiResponse<ReservationResponse>> getReservation(@PathVariable Long id) {
         return ResponseEntity.ok(ApiResponse.success(reservationService.getReservation(id)));
+    }
+
+    @PutMapping("/reservations/{id}")
+    @Operation(summary = "Edit a reservation (date, time, guests, table, contact)")
+    public ResponseEntity<ApiResponse<ReservationResponse>> updateReservation(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody AdminUpdateReservationRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Reservation updated",
+                reservationService.updateReservationAsStaff(id, principal.getUsername(), request)));
+    }
+
+    @PatchMapping("/reservations/{id}/cancel")
+    @Operation(summary = "Cancel a reservation on behalf of a customer")
+    public ResponseEntity<ApiResponse<ReservationResponse>> cancelReservation(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails principal,
+            @RequestBody(required = false) CancelReservationRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Reservation cancelled",
+                reservationService.cancelReservationAsStaff(id, principal.getUsername(),
+                        request != null ? request : new CancelReservationRequest())));
     }
 
     @PatchMapping("/reservations/{id}/check-in")
