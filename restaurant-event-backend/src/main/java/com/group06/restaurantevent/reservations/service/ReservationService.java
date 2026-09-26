@@ -1,5 +1,7 @@
 package com.group06.restaurantevent.reservations.service;
 
+import com.group06.restaurantevent.common.audit.AuditLog;
+import com.group06.restaurantevent.common.audit.AuditLogRepository;
 import com.group06.restaurantevent.common.enums.ReservationStatus;
 import com.group06.restaurantevent.common.enums.TableStatus;
 import com.group06.restaurantevent.common.exception.BadRequestException;
@@ -7,6 +9,7 @@ import com.group06.restaurantevent.common.exception.ConflictException;
 import com.group06.restaurantevent.common.exception.ForbiddenException;
 import com.group06.restaurantevent.common.exception.ResourceNotFoundException;
 import com.group06.restaurantevent.notifications.service.NotificationFactory;
+import com.group06.restaurantevent.reservations.dto.request.AdminCreateReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.CancelReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.CreateReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.UpdateReservationRequest;
@@ -40,6 +43,7 @@ public class ReservationService {
     private final UserRepository userRepository;
     private final TableService tableService;
     private final NotificationFactory notificationFactory;
+    private final AuditLogRepository auditLogRepository;
 
     @Value("${app.reservation.default-duration-minutes:120}")
     private int defaultDurationMinutes;
@@ -85,9 +89,22 @@ public class ReservationService {
 
     @Transactional
     public ReservationResponse createReservation(String email, CreateReservationRequest request) {
-        User customer = findUserByEmail(email);
+        return createFor(findUserByEmail(email), request);
+    }
+
+    @Transactional
+    public ReservationResponse createReservationForCustomer(String staffEmail, AdminCreateReservationRequest request) {
+        ReservationResponse created = createFor(findUserByEmail(request.getCustomerEmail()), request);
+        audit(staffEmail, "RESERVATION_CREATED_BY_STAFF", created.getId(), null, summary(created));
+        return created;
+    }
+
+    private ReservationResponse createFor(User customer, CreateReservationRequest request) {
         RestaurantTable table = tableService.findActiveById(request.getTableId());
 
+        if (LocalDateTime.of(request.getReservationDate(), request.getStartTime()).isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Reservation cannot be in the past");
+        }
         if (table.getCurrentStatus() == TableStatus.OUT_OF_SERVICE) {
             throw new BadRequestException("Table is out of service and cannot be reserved");
         }
@@ -268,6 +285,23 @@ public class ReservationService {
     private User findUserByEmail(String email) {
         return userRepository.findByEmailAndIsActiveTrue(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+    }
+
+    private void audit(String actorEmail, String action, Long reservationId, String oldValue, String newValue) {
+        Long actorId = userRepository.findByEmailAndIsActiveTrue(actorEmail).map(User::getId).orElse(null);
+        auditLogRepository.save(AuditLog.builder()
+                .userId(actorId)
+                .action(action)
+                .entityName("TableReservation")
+                .entityId(reservationId)
+                .oldValue(oldValue)
+                .newValue(newValue)
+                .build());
+    }
+
+    private String summary(ReservationResponse r) {
+        return "table=" + r.getTable().getTableNumber() + ", date=" + r.getReservationDate()
+                + ", time=" + r.getStartTime() + ", guests=" + r.getGuestCount() + ", status=" + r.getStatus();
     }
 
     private String generateReference(LocalDate date) {

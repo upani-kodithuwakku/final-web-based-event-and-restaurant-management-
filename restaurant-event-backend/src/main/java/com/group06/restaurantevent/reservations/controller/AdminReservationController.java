@@ -2,6 +2,7 @@ package com.group06.restaurantevent.reservations.controller;
 
 import com.group06.restaurantevent.common.enums.ReservationStatus;
 import com.group06.restaurantevent.common.response.ApiResponse;
+import com.group06.restaurantevent.reservations.dto.request.AdminCreateReservationRequest;
 import com.group06.restaurantevent.reservations.dto.request.CreateTableRequest;
 import com.group06.restaurantevent.reservations.dto.request.UpdateTableStatusRequest;
 import com.group06.restaurantevent.reservations.dto.response.ReservationResponse;
@@ -17,6 +18,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -88,6 +91,16 @@ public class AdminReservationController {
         LocalDate queryDate = date != null ? date : LocalDate.now();
         return ResponseEntity.ok(ApiResponse.success(
                 reservationService.getReservationsByDate(queryDate, status)));
+    }
+
+    @PostMapping("/reservations")
+    @Operation(summary = "Create a reservation on behalf of a customer")
+    public ResponseEntity<ApiResponse<ReservationResponse>> createReservation(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody AdminCreateReservationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
+                "Reservation created",
+                reservationService.createReservationForCustomer(principal.getUsername(), request)));
     }
 
     @GetMapping("/reservations/{id}")
