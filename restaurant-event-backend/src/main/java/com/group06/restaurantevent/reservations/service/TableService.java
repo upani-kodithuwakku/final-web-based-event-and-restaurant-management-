@@ -25,6 +25,10 @@ public class TableService {
         return tableRepository.findAll().stream().map(this::toResponse).toList();
     }
 
+    public TableResponse getTable(Long id) {
+        return toResponse(findActiveById(id));
+    }
+
     public List<TableResponse> getActiveTables() {
         return tableRepository.findAllByIsActiveTrue().stream().map(this::toResponse).toList();
     }

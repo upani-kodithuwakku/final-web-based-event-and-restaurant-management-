@@ -41,6 +41,12 @@ public class AdminReservationController {
         return ResponseEntity.ok(ApiResponse.success(tableService.getAllTables()));
     }
 
+    @GetMapping("/tables/{id}")
+    @Operation(summary = "Get a table by id")
+    public ResponseEntity<ApiResponse<TableResponse>> getTable(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(tableService.getTable(id)));
+    }
+
     @PostMapping("/tables")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     @Operation(summary = "Create a table")
@@ -82,6 +88,12 @@ public class AdminReservationController {
         LocalDate queryDate = date != null ? date : LocalDate.now();
         return ResponseEntity.ok(ApiResponse.success(
                 reservationService.getReservationsByDate(queryDate, status)));
+    }
+
+    @GetMapping("/reservations/{id}")
+    @Operation(summary = "Get a reservation by id")
+    public ResponseEntity<ApiResponse<ReservationResponse>> getReservation(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(reservationService.getReservation(id)));
     }
 
     @PatchMapping("/reservations/{id}/check-in")

@@ -212,6 +212,10 @@ public class ReservationService {
                 .stream().map(this::toResponse).toList();
     }
 
+    public ReservationResponse getReservation(Long id) {
+        return toResponse(findById(id));
+    }
+
     @Transactional
     public ReservationResponse checkIn(Long id) {
         TableReservation reservation = findById(id);
