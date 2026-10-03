@@ -62,3 +62,19 @@ public class AuthService {
         String token = jwtUtils.generateToken(user.getEmail());
         return buildResponse(token, user);
     }
+
+   private AuthResponse buildResponse(String token, User user) {
+         Set<String> roles = user.getRoles().stream()
+                 .map(Role::getName)
+                 .collect(Collectors.toSet());
+
+         return AuthResponse.builder()
+                 .token(token)
+                 .type("Bearer")
+                 .userId(user.getId())
+                 .email(user.getEmail())
+                 .fullName(user.getFullName())
+                 .roles(roles)
+                 .build();
+     }
+ }
