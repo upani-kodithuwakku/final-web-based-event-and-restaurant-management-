@@ -1,0 +1,23 @@
+package com.group06.restaurantevent.reports.controller;
+
+import com.group06.restaurantevent.common.enums.ReservationStatus;
+import com.group06.restaurantevent.common.enums.TableStatus;
+import com.group06.restaurantevent.reservations.entity.RestaurantTable;
+import com.group06.restaurantevent.reservations.repository.RestaurantTableRepository;
+import com.group06.restaurantevent.reservations.repository.TableReservationRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/admin/reports")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+public class ReportController {
