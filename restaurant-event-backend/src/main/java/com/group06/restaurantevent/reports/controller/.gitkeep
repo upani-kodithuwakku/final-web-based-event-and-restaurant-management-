@@ -21,3 +21,20 @@ import java.util.Map;
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
 public class ReportController {
+
+private final TableReservationRepository reservationRepository;
+    private final RestaurantTableRepository tableRepository;
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> dashboard() {
+        List<RestaurantTable> tables = tableRepository.findAll();
+        long totalTables = tables.size();
+        long availableTables = tables.stream()
+                .filter(t -> t.getCurrentStatus() == TableStatus.AVAILABLE).count();
+        long occupiedTables = tables.stream()
+                .filter(t -> t.getCurrentStatus() == TableStatus.OCCUPIED).count();
+
+        long todayReservations = reservationRepository
+                .findByReservationDateAndStatusIn(LocalDate.now(),
+                        List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED,
+                                ReservationStatus.CHECKED_IN)).size();
