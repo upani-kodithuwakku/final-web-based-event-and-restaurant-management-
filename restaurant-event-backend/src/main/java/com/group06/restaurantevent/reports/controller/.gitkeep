@@ -38,3 +38,13 @@ private final TableReservationRepository reservationRepository;
                 .findByReservationDateAndStatusIn(LocalDate.now(),
                         List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED,
                                 ReservationStatus.CHECKED_IN)).size();
+
+  return ResponseEntity.ok(Map.of(
+                 "date", LocalDate.now().toString(),
+                 "todayReservations", todayReservations,
+                 "totalTables", totalTables,
+                 "availableTables", availableTables,
+                 "occupiedTables", occupiedTables
+         ));
+     }
+ }
