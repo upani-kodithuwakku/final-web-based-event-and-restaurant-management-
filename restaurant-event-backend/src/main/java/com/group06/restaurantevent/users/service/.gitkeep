@@ -53,3 +53,92 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
         userRepository.save(user);
     }
+
+
+    // ── Admin user management ─────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public List<AdminUserResponse> listUsers() {
+        return userRepository.findAll().stream()
+                .sorted(Comparator.comparing(User::getId))
+                .map(this::toAdmin).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public AdminUserResponse getUser(Long id) {
+        return toAdmin(findUser(id));
+    }
+
+    @Transactional
+    public AdminUserResponse setActive(Long id, boolean active, String adminEmail) {
+        User user = findUser(id);
+        if (!active && user.getEmail().equalsIgnoreCase(adminEmail))
+            throw new BadRequestException("You cannot suspend your own account");
+        boolean before = user.isActive();
+        user.setActive(active);
+        AdminUserResponse response = toAdmin(userRepository.save(user));
+        audit(adminEmail, active ? "USER_ACTIVATED" : "USER_SUSPENDED", user.getId(),
+                String.valueOf(before), String.valueOf(active));
+        return response;
+    }
+
+    @Transactional
+    public void resetPassword(Long id, AdminResetPasswordRequest req, String adminEmail) {
+        User user = findUser(id);
+        user.setPasswordHash(passwordEncoder.encode(req.getPassword()));
+        userRepository.save(user);
+        audit(adminEmail, "USER_PASSWORD_RESET", user.getId(), null, null);
+    }
+
+    /** Users are deactivated, never hard-deleted, because orders and bookings reference them. */
+    @Transactional
+    public void deactivate(Long id, String adminEmail) {
+        setActive(id, false, adminEmail);
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+
+    private void audit(String adminEmail, String action, Long userId, String oldValue, String newValue) {
+        Long adminId = userRepository.findByEmail(adminEmail).map(User::getId).orElse(null);
+        auditLogRepository.save(AuditLog.builder().userId(adminId).action(action)
+                .entityName("User").entityId(userId).oldValue(oldValue).newValue(newValue).build());
+    }
+
+    private User findActiveUser(String email) {
+        return userRepository.findByEmailAndIsActiveTrue(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+    }
+
+    private User findUser(Long id) {
+        return userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
+    }
+
+    private List<String> roleNames(User user) {
+        return user.getRoles().stream().map(Role::getName).sorted().toList();
+    }
+
+    private UserProfileResponse toProfile(User user) {
+        return UserProfileResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phone(user.getPhone() != null ? user.getPhone() : "")
+                .roles(roleNames(user))
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    private AdminUserResponse toAdmin(User user) {
+        return AdminUserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName() != null ? user.getFullName() : "")
+                .email(user.getEmail())
+                .phone(user.getPhone() != null ? user.getPhone() : "")
+                .roles(roleNames(user))
+                .isActive(user.isActive())
+                .createdAt(user.getCreatedAt())
+                .build();
+    }
+}
+
