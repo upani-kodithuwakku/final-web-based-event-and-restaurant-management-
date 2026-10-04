@@ -42,6 +42,7 @@ export const inventoryApi = {
  create: async (body: {name: string; unit: string; currentQuantity: number; reorderLevel: number}) => (await api.post<InventoryItemDto>('/inventory/items', body)).data,
  update: async (id: number, body: {name: string; unit: string; currentQuantity: number; reorderLevel: number}) => (await api.put<InventoryItemDto>(`/inventory/items/${id}`, body)).data,
  adjust: async (id: number, delta: number, note: string) => (await api.patch<InventoryItemDto>(`/inventory/items/${id}/adjust`, {delta, note})).data,
+ delete: async (id: number) => api.delete(`/inventory/items/${id}`),
 };
 
 // Menu — returns plain arrays
