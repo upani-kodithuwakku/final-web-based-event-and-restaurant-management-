@@ -1,0 +1,21 @@
+package com.group06.restaurantevent.users.service;
+
+import com.group06.restaurantevent.common.audit.AuditLog;
+import com.group06.restaurantevent.common.audit.AuditLogRepository;
+import com.group06.restaurantevent.common.exception.BadRequestException;
+import com.group06.restaurantevent.common.exception.ResourceNotFoundException;
+import com.group06.restaurantevent.users.dto.request.AdminResetPasswordRequest;
+import com.group06.restaurantevent.users.dto.request.ChangePasswordRequest;
+import com.group06.restaurantevent.users.dto.request.UpdateProfileRequest;
+import com.group06.restaurantevent.users.dto.response.AdminUserResponse;
+import com.group06.restaurantevent.users.dto.response.UserProfileResponse;
+import com.group06.restaurantevent.users.entity.Role;
+import com.group06.restaurantevent.users.entity.User;
+import com.group06.restaurantevent.users.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Comparator;
+import java.util.List;
