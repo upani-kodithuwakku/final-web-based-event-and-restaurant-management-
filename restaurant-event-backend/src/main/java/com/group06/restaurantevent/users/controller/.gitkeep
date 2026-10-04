@@ -1,0 +1,16 @@
+package com.group06.restaurantevent.users.controller;
+
+import com.group06.restaurantevent.users.dto.request.AdminResetPasswordRequest;
+import com.group06.restaurantevent.users.dto.request.UpdateUserStatusRequest;
+import com.group06.restaurantevent.users.dto.response.AdminUserResponse;
+import com.group06.restaurantevent.users.service.UserService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
