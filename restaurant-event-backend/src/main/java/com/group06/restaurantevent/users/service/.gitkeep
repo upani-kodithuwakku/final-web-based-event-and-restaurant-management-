@@ -19,3 +19,37 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Comparator;
 import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuditLogRepository auditLogRepository;
+
+    // ── Own profile ───────────────────────────────────────────
+
+    @Transactional(readOnly = true)
+    public UserProfileResponse getProfile(String email) {
+        return toProfile(findActiveUser(email));
+    }
+
+    @Transactional
+    public UserProfileResponse updateProfile(String email, UpdateProfileRequest req) {
+        User user = findActiveUser(email);
+        user.setFullName(req.getFullName().trim());
+        if (req.getPhone() != null) user.setPhone(req.getPhone().isBlank() ? null : req.getPhone().trim());
+        return toProfile(userRepository.save(user));
+    }
+
+    @Transactional
+    public void changePassword(String email, ChangePasswordRequest req) {
+        User user = findActiveUser(email);
+        if (!passwordEncoder.matches(req.getCurrentPassword(), user.getPasswordHash()))
+            throw new BadRequestException("Current password is incorrect");
+        if (passwordEncoder.matches(req.getNewPassword(), user.getPasswordHash()))
+            throw new BadRequestException("New password must be different from the current password");
+        user.setPasswordHash(passwordEncoder.encode(req.getNewPassword()));
+        userRepository.save(user);
+    }
