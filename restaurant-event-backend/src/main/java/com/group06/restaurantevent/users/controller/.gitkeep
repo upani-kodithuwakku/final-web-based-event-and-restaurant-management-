@@ -14,3 +14,22 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+/** Admin user management. URLs and JSON are unchanged so the admin Users page keeps working. */
+@RestController
+@RequestMapping("/api/admin/users")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+@Tag(name = "Admin users")
+public class AdminUserController {
+
+    private final UserService userService;
+
+    @GetMapping
+    public ResponseEntity<List<AdminUserResponse>> listUsers() {
+        return ResponseEntity.ok(userService.listUsers());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<AdminUserResponse> getUser(@PathVariable Long id) {
+        return ResponseEntity.ok(userService.getUser(id));
+    }
