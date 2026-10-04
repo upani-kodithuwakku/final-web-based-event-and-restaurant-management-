@@ -33,3 +33,24 @@ public class AdminUserController {
     public ResponseEntity<AdminUserResponse> getUser(@PathVariable Long id) {
         return ResponseEntity.ok(userService.getUser(id));
     }
+     @PatchMapping("/{id}/suspend")
+        public ResponseEntity<AdminUserResponse> setActive(@PathVariable Long id,
+                                                           @Valid @RequestBody UpdateUserStatusRequest req,
+                                                           @AuthenticationPrincipal UserDetails principal) {
+            return ResponseEntity.ok(userService.setActive(id, req.getActive(), principal.getUsername()));
+        }
+
+        @PostMapping("/{id}/reset-password")
+        public ResponseEntity<Void> resetPassword(@PathVariable Long id,
+                                                  @Valid @RequestBody AdminResetPasswordRequest req,
+                                                  @AuthenticationPrincipal UserDetails principal) {
+            userService.resetPassword(id, req, principal.getUsername());
+            return ResponseEntity.noContent().build();
+        }
+
+        @DeleteMapping("/{id}")
+        public ResponseEntity<Void> deactivateUser(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+            userService.deactivate(id, principal.getUsername());
+            return ResponseEntity.noContent().build();
+        }
+    }
