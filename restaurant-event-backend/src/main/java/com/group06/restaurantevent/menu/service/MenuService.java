@@ -31,7 +31,7 @@ public class MenuService {
     public List<MenuItemResponse> listItems(Long categoryId) {
         List<MenuItem> items = categoryId != null
                 ? itemRepository.findByCategoryIdAndIsActiveTrueOrderByNameAsc(categoryId)
-                : itemRepository.findByIsAvailableTrueAndIsActiveTrueOrderByNameAsc();
+                : itemRepository.findByIsActiveTrueOrderByNameAsc();
         return items.stream().map(this::toItemResponse).toList();
     }
 
@@ -49,7 +49,7 @@ public class MenuService {
         if (categoryRepository.existsByNameIgnoreCase(req.getName()))
             throw new BadRequestException("Category name already exists");
         MenuCategory cat = MenuCategory.builder()
-                .name(req.getName())
+                .name(req.getName().trim())
                 .description(req.getDescription())
                 .displayOrder(req.getDisplayOrder())
                 .isActive(true)
@@ -61,7 +61,8 @@ public class MenuService {
     public CategoryResponse updateCategory(Long id, CreateCategoryRequest req) {
         MenuCategory cat = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
-        cat.setName(req.getName());
+        if(categoryRepository.findAll().stream().anyMatch(x -> !x.getId().equals(id) && x.getName().equalsIgnoreCase(req.getName().trim()))) throw new BadRequestException("Category name already exists");
+        cat.setName(req.getName().trim());
         cat.setDescription(req.getDescription());
         cat.setDisplayOrder(req.getDisplayOrder());
         return toCategoryResponse(categoryRepository.save(cat));
@@ -79,9 +80,10 @@ public class MenuService {
     public MenuItemResponse createItem(CreateMenuItemRequest req) {
         MenuCategory cat = categoryRepository.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        if(!cat.isActive()) throw new BadRequestException("Choose an active category");
         MenuItem item = MenuItem.builder()
                 .category(cat)
-                .name(req.getName())
+                .name(req.getName().trim())
                 .description(req.getDescription())
                 .price(req.getPrice())
                 .imageUrl(req.getImageUrl())
@@ -97,6 +99,7 @@ public class MenuService {
         MenuItem item = findItem(id);
         MenuCategory cat = categoryRepository.findById(req.getCategoryId())
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        if(!cat.isActive()) throw new BadRequestException("Choose an active category");
         item.setCategory(cat);
         item.setName(req.getName());
         item.setDescription(req.getDescription());

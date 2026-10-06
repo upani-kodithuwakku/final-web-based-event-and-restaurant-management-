@@ -23,6 +23,7 @@ public class AdminMenuController {
 
     private final MenuService menuService;
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAITER','KITCHEN_STAFF')")
     @GetMapping("/items")
     public ResponseEntity<List<MenuItemResponse>> listAll() {
         return ResponseEntity.ok(menuService.listAllItems());
@@ -56,10 +57,12 @@ public class AdminMenuController {
         return ResponseEntity.ok(menuService.updateItem(id, req));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAITER','KITCHEN_STAFF')")
     @PatchMapping("/items/{id}/availability")
     public ResponseEntity<MenuItemResponse> toggleAvailability(@PathVariable Long id,
                                                                @RequestBody Map<String, Boolean> body) {
-        return ResponseEntity.ok(menuService.toggleAvailability(id, body.getOrDefault("available", true)));
+        if (body.get("available") == null) throw new com.group06.restaurantevent.common.exception.BadRequestException("Choose dish availability");
+        return ResponseEntity.ok(menuService.toggleAvailability(id, body.get("available")));
     }
 
     @DeleteMapping("/items/{id}")
