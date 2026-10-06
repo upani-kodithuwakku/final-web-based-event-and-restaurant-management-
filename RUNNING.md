@@ -49,6 +49,18 @@ Card payments use a simulated gateway, not a real card processor.
 
 ## Database scripts
 
+For a fresh database, open `database/00_full_schema.sql` in VS Code and run the
+entire file through a MySQL connection (for example, a MySQL extension), or use:
+
+```sh
+mysql -u root -p < database/00_full_schema.sql
+```
+
+This creates all 31 tables, including five marked planned tables, and the eight
+access roles. It does not create demo users or sample bookings. A VS Code editor
+alone cannot execute SQL; connect it to your running MySQL server first.
+Rerunning this file does not upgrade existing tables.
+
 Hibernate creates or updates the schema on startup. The numbered SQL scripts
 are manually run setup/data scripts, not an automatic migration runner. See
 [INTEGRATION_NOTES.md](docs/INTEGRATION_NOTES.md) for prerequisites and data scripts.
