@@ -40,9 +40,11 @@ function useAppState() {
     setLoading(true); setLoadError('');
     try {
       if (user.roles.some(r => STAFF_ROLES.includes(r))) {
-        setTables(await reservationApi.tables());
+        setTables(await (user.roles.includes('KITCHEN_STAFF') && !user.roles.some(role => ['ADMIN', 'MANAGER', 'WAITER'].includes(role)) ? reservationApi.spaces() : reservationApi.tables()));
       } else {
-        setReservations(await reservationApi.mine());
+        const [bookings, spaces] = await Promise.all([reservationApi.mine(), reservationApi.spaces()]);
+        setReservations(bookings);
+        setTables(spaces);
       }
     } catch { setLoadError('Could not load your data. Please retry.'); }
     finally { setLoading(false); }
