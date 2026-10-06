@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { authenticate, errorMessage } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { images } from '../data';
@@ -24,6 +24,7 @@ function redirectForRoles(roles: string[]): string {
 export default function Auth({ register = false }: { register?: boolean }) {
   const app = useApp();
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
 
@@ -42,20 +43,21 @@ export default function Auth({ register = false }: { register?: boolean }) {
           try {
             const user = await authenticate(register, values);
             app.login(user);
-            navigate(redirectForRoles(user.roles));
+            navigate(location.state?.from === '/menu' && user.roles.includes('CUSTOMER') ? '/menu' : redirectForRoles(user.roles));
           } catch (err) { setError(errorMessage(err)); }
           finally { setBusy(false); }
         }}>
           {register && <label>Full name<input required name="fullName" autoComplete="name" placeholder="Your full name" /></label>}
           <label>Email address<input required name="email" autoComplete="email" type="email" placeholder="you@example.com" /></label>
           <label>Password<input required name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'} minLength={register ? 8 : 1} placeholder={register ? 'At least 8 characters' : 'Your password'} /></label>
-          {register && <label>Phone number<input name="phone" type="tel" autoComplete="tel" placeholder="+94 77 123 4567" /></label>}
+          {register && <label>Phone number<input name="phone" type="tel" pattern="[0-9]{10}|^$" inputMode="numeric" autoComplete="tel" placeholder="0771234567" /></label>}
+          {!register && <Link className="text-button forgot-link" to="/forgot-password">Forgot password?</Link>}
           {error && <p className="error" role="alert">{error}</p>}
           <button className="button primary full" disabled={busy}>{busy ? 'One moment…' : register ? 'Create account' : 'Log in'}</button>
         </form>
         <p className="center small">
           {register ? 'Already part of the table? ' : 'New around here? '}
-          <Link className="text-button" to={register ? '/login' : '/register'}>{register ? 'Log in' : 'Create an account'}</Link>
+          <Link className="text-button" state={location.state} to={register ? '/login' : '/register'}>{register ? 'Log in' : 'Create an account'}</Link>
         </p>
       </div>
     </div>
