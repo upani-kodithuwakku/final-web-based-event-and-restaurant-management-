@@ -54,7 +54,6 @@ public class UserService {
         userRepository.save(user);
     }
 
-
     // ── Admin user management ─────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -94,6 +93,13 @@ public class UserService {
     @Transactional
     public void deactivate(Long id, String adminEmail) {
         setActive(id, false, adminEmail);
+    }
+
+    @Transactional
+    public AdminUserResponse updateUser(Long id, UpdateProfileRequest req, String adminEmail) {
+        User user=findUser(id);user.setFullName(req.getFullName().trim());user.setPhone(req.getPhone());
+        audit(adminEmail,"USER_PROFILE_UPDATED",id,null,null);
+        return toAdmin(userRepository.save(user));
     }
 
     // ── Helpers ───────────────────────────────────────────────
@@ -141,4 +147,3 @@ public class UserService {
                 .build();
     }
 }
-

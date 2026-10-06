@@ -12,6 +12,6 @@ public class UpdateProfileRequest {
     private String fullName;
 
     @Size(max = 20, message = "Phone must be at most 20 characters")
-    @Pattern(regexp = "^$|^\\+?[0-9 ()-]{9,20}$", message = "Please enter a valid phone number")
+    @Pattern(regexp = "^$|[0-9]{10}", message = "Phone number must contain exactly 10 digits")
     private String phone;
 }
