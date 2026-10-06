@@ -1,8 +1,7 @@
 package com.group06.restaurantevent.reservations.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
-import jakarta.validation.constraints.FutureOrPresent;
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -17,10 +16,14 @@ public class UpdateReservationRequest {
     private LocalTime startTime;
 
     @Min(1)
+    @Max(200)
     private Integer guestCount;
 
     private String seatingPreference;
+    @Size(max=500)
     private String specialRequest;
+    @Pattern(regexp = ".*\\S.*", message="Contact name cannot be blank") @Size(max=100)
     private String contactName;
+    @Pattern(regexp = "[0-9]{10}", message = "Phone number must contain exactly 10 digits")
     private String contactPhone;
 }

@@ -12,6 +12,10 @@ import java.util.List;
 
 public interface TableReservationRepository extends JpaRepository<TableReservation, Long> {
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM TableReservation r WHERE r.id = :id")
+    java.util.Optional<TableReservation> findForPayment(@Param("id") Long id);
+
     List<TableReservation> findByCustomerIdOrderByReservationDateDescCreatedAtDesc(Long customerId);
 
     List<TableReservation> findByReservationDateAndStatusIn(LocalDate date, List<ReservationStatus> statuses);

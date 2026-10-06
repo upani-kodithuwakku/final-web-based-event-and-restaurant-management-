@@ -50,6 +50,9 @@ public class StaffService {
 
     @Transactional
     public StaffProfileResponse createStaffUser(CreateStaffUserRequest req) {
+        req.setEmail(req.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+        req.setFullName(req.getFullName().trim());
+        if(req.getRoles().contains("CUSTOMER")) throw new BadRequestException("Staff accounts must use staff roles");
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new ConflictException("Email already registered: " + req.getEmail());
         }
@@ -135,6 +138,7 @@ public class StaffService {
         StaffProfile p = findProfile(id);
         User u = userRepository.findById(p.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found for staff profile"));
+        if(roleNames == null || roleNames.isEmpty() || roleNames.contains("CUSTOMER")) throw new BadRequestException("Select at least one staff role");
         Set<Role> roles = roleNames.stream()
                 .map(n -> roleRepository.findByName(n.toUpperCase())
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + n)))
@@ -168,6 +172,7 @@ public class StaffService {
 
     @Transactional
     public ShiftResponse createShift(CreateShiftRequest req) {
+        validateShift(req);
         Shift shift = Shift.builder()
                 .shiftDate(req.getShiftDate())
                 .startTime(req.getStartTime())
@@ -196,7 +201,12 @@ public class StaffService {
     @Transactional
     public ShiftAssignmentResponse assignStaff(Long shiftId, Long staffId) {
         Shift shift = findShift(shiftId);
-        findProfile(staffId);
+        if (staffId == null) throw new BadRequestException("Select a staff member");
+        StaffProfile profile = findProfile(staffId);
+        if (!profile.isActive() || profile.getEmploymentStatus() == EmploymentStatus.TERMINATED) throw new BadRequestException("Inactive or terminated staff cannot be assigned");
+        if (shift.getStatus() != ShiftStatus.SCHEDULED) throw new BadRequestException("Only scheduled shifts accept assignments");
+        User user = userRepository.findById(profile.getUserId()).orElseThrow(() -> new ResourceNotFoundException("Staff user not found"));
+        if (!user.isActive() || user.getRoles().stream().noneMatch(r -> r.getName().equals(shift.getRoleRequired()))) throw new BadRequestException("Staff member must have the required role");
 
         if (!assignmentRepository.findOverlapping(staffId, shift.getShiftDate(),
                 shift.getStartTime(), shift.getEndTime()).isEmpty())
@@ -221,6 +231,30 @@ public class StaffService {
         assignmentRepository.delete(assignment);
     }
 
+    @Transactional
+    public ShiftResponse updateShift(Long id, CreateShiftRequest req) {
+        validateShift(req);
+        Shift shift = findShift(id);
+        if(shift.getStatus() != ShiftStatus.SCHEDULED) throw new BadRequestException("Only scheduled shifts can be edited");
+        for(ShiftAssignment a: assignmentRepository.findByShift_Id(id)) {
+            if(!shift.getRoleRequired().equals(req.getRoleRequired())) throw new ConflictException("Unassign staff before changing the required role");
+            if(assignmentRepository.findOverlapping(a.getStaffId(), req.getShiftDate(), req.getStartTime(), req.getEndTime()).stream().anyMatch(x -> !x.getShift().getId().equals(id))) throw new ConflictException("Updated shift overlaps another assignment");
+        }
+        shift.setShiftDate(req.getShiftDate());shift.setStartTime(req.getStartTime());shift.setEndTime(req.getEndTime());shift.setRoleRequired(req.getRoleRequired());shift.setRequiredStaffCount(req.getRequiredStaffCount());
+        return toShiftResponse(shiftRepository.save(shift));
+    }
+    @Transactional
+    public void deleteStaff(Long id) {
+        StaffProfile p=findProfile(id);
+        if(assignmentRepository.findByStaffIdOrderByCreatedAtDesc(id).stream().anyMatch(a -> a.getShift().getStatus()==ShiftStatus.SCHEDULED && !a.getShift().getShiftDate().isBefore(LocalDate.now()))) throw new ConflictException("Unassign upcoming shifts before removing staff");
+        p.setEmploymentStatus(EmploymentStatus.TERMINATED);p.setActive(false);profileRepository.save(p);
+    }
+    private void validateShift(CreateShiftRequest req) {
+        if(!req.getEndTime().isAfter(req.getStartTime())) throw new BadRequestException("Shift end time must be after start time");
+        if(req.getShiftDate().atTime(req.getStartTime()).isBefore(java.time.LocalDateTime.now(java.time.ZoneId.of("Asia/Colombo")))) throw new BadRequestException("Shift start must be in the future");
+        if(roleRepository.findByName(req.getRoleRequired()).isEmpty() || "CUSTOMER".equals(req.getRoleRequired())) throw new BadRequestException("Select a valid staff role");
+    }
+
     // ---- Helpers ----
 
     private StaffProfile findProfile(Long id) {
@@ -241,7 +275,7 @@ public class StaffService {
 
     private EmploymentStatus parseStatus(String s) {
         try { return EmploymentStatus.valueOf(s.toUpperCase()); }
-        catch (Exception e) { return EmploymentStatus.FULL_TIME; }
+        catch (Exception e) { throw new BadRequestException("Invalid employment status"); }
     }
 
     private StaffProfileResponse toProfileResponse(StaffProfile p, User u) {

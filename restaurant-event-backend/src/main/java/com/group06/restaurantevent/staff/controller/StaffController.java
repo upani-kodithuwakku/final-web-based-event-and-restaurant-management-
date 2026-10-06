@@ -86,6 +86,11 @@ public class StaffController {
         return ResponseEntity.status(HttpStatus.CREATED).body(staffService.createShift(req));
     }
 
+    @PutMapping("/shifts/{id}")
+    public ResponseEntity<ShiftResponse> updateShift(@PathVariable Long id, @Valid @RequestBody CreateShiftRequest req) { return ResponseEntity.ok(staffService.updateShift(id,req)); }
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteStaff(@PathVariable Long id) { staffService.deleteStaff(id); return ResponseEntity.noContent().build(); }
+
     @DeleteMapping("/shifts/{id}")
     public ResponseEntity<Void> deleteShift(@PathVariable Long id) {
         staffService.deleteShift(id);

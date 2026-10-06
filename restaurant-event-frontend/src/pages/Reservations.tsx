@@ -3,13 +3,17 @@ import { Link } from 'react-router-dom';
 import { CalendarDaysIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/outline';
 import { useApp } from '../context/AppContext';
 import { Badge, Empty, Modal, SectionHeading } from '../components/UI';
+import BookingPayment, { BookingPaymentBadge, useBookingPayments } from '../components/BookingPayment';
 import BookingModal from '../components/BookingModal';
-import { tableImage, tableTitle } from '../data';
+import { tableImage, tableTitle, images } from '../data';
 import { errorMessage } from '../services/api';
 import type { Reservation } from '../types';
 
 export default function Reservations() {
   const app = useApp();
+  const [payFor, setPayFor] = useState<number>();
+  const [paymentRefresh, setPaymentRefresh] = useState(0);
+  const { summary, error: paymentError } = useBookingPayments(!!app.user?.roles.includes('CUSTOMER'), `${paymentRefresh}-${app.reservations.map(r => `${r.id}:${r.status}`).join(',')}`);
   const [tab, setTab] = useState('Upcoming');
   const [edit, setEdit] = useState<Reservation>();
   const [cancel, setCancel] = useState<Reservation>();
@@ -24,7 +28,7 @@ export default function Reservations() {
 
   if (!app.user) {
     return (
-      <div className="page-container page-enter">
+      <div className="page-container page-enter reservations-page">
         <SectionHeading eyebrow="GOOD TIMES AHEAD" title="My reservations" description="A little less planning. A little more looking forward." action={<Link to="/" className="button primary">Find a table</Link>} />
         <Empty title="Your tables, all in one place"><Link className="button primary" to="/login">Sign in to view reservations</Link></Empty>
       </div>
@@ -32,8 +36,13 @@ export default function Reservations() {
   }
 
   return (
-    <div className="page-container page-enter">
+    <div className="page-container page-enter reservations-page">
       <SectionHeading eyebrow="GOOD TIMES AHEAD" title="My reservations" description="A little less planning. A little more looking forward." action={<Link to="/" className="button primary">Find a table</Link>} />
+      <section className="reservation-welcome" style={{ backgroundImage: `linear-gradient(90deg,rgba(25,35,32,.88),rgba(25,35,32,.15)),url(${images.window})` }}>
+        <span className="eyebrow">A SEAT WITH YOUR NAME ON IT</span><h2>Good company.<br />A table to remember.</h2>
+        <p>Plan your visit, personalise your table, and leave the rest to us.</p>
+      </section>
+      {paymentError && <p className="error" role="alert">Payment status unavailable: {paymentError}</p>}
       <div className="tabs">
         {['Upcoming', 'Past & cancelled'].map(t => <button key={t} className={t === tab ? 'active' : ''} onClick={() => setTab(t)}>{t}</button>)}
       </div>
@@ -45,16 +54,18 @@ export default function Reservations() {
         <div className="reservation-list">
           {rows.map(r => (
             <article className="reservation-card" key={r.id}>
-              <img src={tableImage(r.table.location)} alt={tableTitle(r.table.location)} />
+              <img src={tableImage(r.table.location, r.table)} alt={tableTitle(r.table.location, r.table)} />
               <div>
                 <div className="row-between"><span className="eyebrow">{r.bookingReference}</span><Badge status={r.status} /></div>
-                <h2>{tableTitle(r.table.location)}</h2>
+                <h2>{tableTitle(r.table.location, r.table)}</h2>
                 <p>{r.table.tableNumber} · {r.table.location.toLowerCase()} seating</p>
                 <div className="reservation-details">
                   <span><CalendarDaysIcon />{r.reservationDate}</span>
                   <span><ClockIcon />{r.startTime.slice(0, 5)}</span>
                   <span><UsersIcon />{r.guestCount} guests</span>
                 </div>
+                {summary && <BookingPaymentBadge payment={summary.tableReservations.find(l => l.targetId === r.id)} deposit />}
+                {summary?.tableReservations.some(l => l.targetId === r.id && l.payable && l.paymentStatus !== 'PAID' && l.paymentStatus !== 'REFUNDED') && <button className="button primary" onClick={() => setPayFor(r.id)}>Pay deposit</button>}
                 {r.specialRequest && <p className="request-note">"{r.specialRequest}"</p>}
                 {['PENDING', 'CONFIRMED'].includes(r.status) && new Date(`${r.reservationDate}T${r.startTime}`) > new Date() && (
                   <div className="button-row">
@@ -72,6 +83,7 @@ export default function Reservations() {
           <Link className="button primary" to="/">Explore our tables</Link>
         </Empty>
       )}
+      {payFor && <BookingPayment purpose="TABLE_RESERVATION" targetId={payFor} onClose={() => setPayFor(undefined)} onDone={() => setPaymentRefresh(v => v + 1)} />}
       {edit && <BookingModal table={edit.table} date={edit.reservationDate} time={edit.startTime} guests={edit.guestCount} existing={edit} onClose={() => setEdit(undefined)} />}
       {cancel && (
         <Modal title="Cancel your reservation?" onClose={() => setCancel(undefined)}>

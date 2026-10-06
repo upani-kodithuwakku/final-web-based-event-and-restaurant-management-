@@ -26,6 +26,7 @@ export default function AdminInventory() {
   const lowStock = items.filter(i => i.isActive && i.lowStock);
 
   const save = async () => {
+    if(!form.name.trim() || !form.unit.trim() || !Number.isFinite(form.currentQuantity) || !Number.isFinite(form.reorderLevel) || form.currentQuantity < 0 || form.reorderLevel < 0) {setErr('Enter an item name, unit and non-negative quantities.');return;}
     setBusy(true); setErr('');
     try {
       if (modal === 'new') {
@@ -42,6 +43,7 @@ export default function AdminInventory() {
 
   const applyAdj = async () => {
     if (!adjModal) return;
+    if(!Number.isFinite(Number(adjDelta)) || Number(adjDelta) === 0) {setErr('Enter a non-zero stock adjustment.');return;}
     setBusy(true); setErr('');
     try {
       const updated = await inventoryApi.adjust(adjModal.id, parseFloat(adjDelta), adjNote || 'Manual adjustment');
@@ -51,7 +53,15 @@ export default function AdminInventory() {
     finally { setBusy(false); }
   };
 
-  const pct = (item: InventoryItemDto) => Math.min(100, Math.round((Number(item.currentQuantity) / (Number(item.reorderLevel) * 3)) * 100));
+  const remove = async (item: InventoryItemDto) => {
+    if (!window.confirm(`Delete ${item.name} from active stock?`)) return;
+    setBusy(true); setErr('');
+    try { await inventoryApi.remove(item.id); setItems(all => all.filter(i => i.id !== item.id)); }
+    catch (e) { setErr(errorMessage(e)); }
+    finally { setBusy(false); }
+  };
+
+  const pct = (item: InventoryItemDto) => item.reorderLevel > 0 ? Math.min(100, Math.round((Number(item.currentQuantity) / (Number(item.reorderLevel) * 3)) * 100)) : (item.currentQuantity > 0 ? 100 : 0);
 
   return (
     <div className="page-enter">
@@ -80,6 +90,7 @@ export default function AdminInventory() {
         <div className="skeleton" style={{ height: 200 }} />
       ) : (
         <div className="inventory-grid">
+          {!items.some(i => i.isActive) && <p className="muted">No stock items yet. Use Add item to get started.</p>}
           {items.filter(i => i.isActive).map(item => (
             <div key={item.id} className={`inventory-card${item.lowStock ? ' low-stock' : ''}`}>
               <div className="row-between">
@@ -107,6 +118,7 @@ export default function AdminInventory() {
                 >
                   Adjust stock
                 </button>
+                <button className="button" disabled={busy} onClick={() => void remove(item)}>Delete</button>
               </div>
             </div>
           ))}

@@ -35,6 +35,7 @@ import java.util.List;
 @PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAITER')")
 public class AdminReservationController {
 
+    private final com.group06.restaurantevent.common.audit.AuditLogRepository auditLogs;
     private final TableService tableService;
     private final ReservationService reservationService;
 
@@ -130,6 +131,22 @@ public class AdminReservationController {
         return ResponseEntity.ok(ApiResponse.success("Reservation cancelled",
                 reservationService.cancelReservationAsStaff(id, principal.getUsername(),
                         request != null ? request : new CancelReservationRequest())));
+    }
+
+    public record ReservationHistory(Long id, Long actorId, String action, String previousStatus,
+                                     String status, java.time.LocalDateTime createdAt) {}
+
+    @GetMapping("/reservations/{id}/history")
+    public ResponseEntity<ApiResponse<List<ReservationHistory>>> history(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(auditLogs
+                .findByEntityNameAndEntityIdOrderByCreatedAtDescIdDesc("TableReservation", id).stream()
+                .map(log -> new ReservationHistory(log.getId(), log.getUserId(), log.getAction(),
+                        log.getOldValue(), log.getNewValue(), log.getCreatedAt())).toList()));
+    }
+
+    @PatchMapping("/reservations/{id}/confirm")
+    public ResponseEntity<ApiResponse<ReservationResponse>> confirm(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(reservationService.confirm(id)));
     }
 
     @PatchMapping("/reservations/{id}/check-in")

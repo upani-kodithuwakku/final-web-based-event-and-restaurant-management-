@@ -12,6 +12,7 @@ public class CreateOrderRequest {
     private Long tableId;
     private Long reservationId;
     private String orderType = "DINE_IN";
+    @jakarta.validation.constraints.Size(max = 500)
     private String specialNote;
 
     @NotEmpty(message = "At least one item is required")
@@ -24,8 +25,11 @@ public class CreateOrderRequest {
         private Long menuItemId;
 
         @NotNull(message = "Quantity is required")
+        @jakarta.validation.constraints.Min(1)
+        @jakarta.validation.constraints.Max(99)
         private Integer quantity;
 
+        @jakarta.validation.constraints.Size(max = 500)
         private String specialNote;
     }
 }

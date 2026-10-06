@@ -18,4 +18,10 @@ public class MenuItemResponse {
     private int preparationMinutes;
     private boolean isAvailable;
     private boolean isActive;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isAvailable")
+    public boolean isAvailable() { return isAvailable; }
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isActive")
+    public boolean isActive() { return isActive; }
 }

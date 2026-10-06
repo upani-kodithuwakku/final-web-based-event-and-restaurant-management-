@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { BellIcon, Bars3Icon, UserCircleIcon, GlobeAltIcon, HeartIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
+import { Bars3Icon, UserCircleIcon, GlobeAltIcon, HeartIcon, ArrowUpRightIcon } from '@heroicons/react/24/outline';
 import { useApp } from '../context/AppContext';
-import { Modal } from './UI';
+import NotificationBell from './NotificationBell';
 
 const STAFF_ROLES = ['ADMIN', 'MANAGER', 'WAITER', 'KITCHEN_STAFF', 'EVENT_COORDINATOR', 'CASHIER', 'INVENTORY_MANAGER'];
 
@@ -11,9 +11,8 @@ export function Logo() {
 }
 
 export default function Layout() {
-  const { user, logout, notifications, setNotifications } = useApp();
+  const { user, logout } = useApp();
   const [menu, setMenu] = useState(false);
-  const [notices, setNotices] = useState(false);
   const isStaff = user?.roles.some(r => STAFF_ROLES.includes(r));
 
   return (
@@ -26,12 +25,11 @@ export default function Layout() {
             <NavLink to="/menu">Our menu</NavLink>
             <NavLink to="/events">Events & celebrations</NavLink>
             <NavLink to="/reservations">My reservations</NavLink>
+            {user?.roles.includes('CUSTOMER') && <NavLink to="/payments">Payments</NavLink>}
           </nav>
           <div className="nav-actions">
             <Link className="saved-link" to="/saved" aria-label="Saved tables"><HeartIcon /></Link>
-            <button className="icon-button notification-button" aria-label="Notifications" onClick={() => setNotices(true)}>
-              <BellIcon />{notifications.length > 0 && <i />}
-            </button>
+            <NotificationBell />
             <div className="profile-menu">
               <button className="profile-button" aria-label="Account menu" aria-expanded={menu} onClick={() => setMenu(!menu)}>
                 <Bars3Icon /><span className="avatar">{user ? user.fullName.charAt(0) : <UserCircleIcon />}</span>
@@ -71,16 +69,6 @@ export default function Layout() {
           <span><GlobeAltIcon /> English (UK) <b>LKR</b></span>
         </div>
       </footer>
-      {notices && (
-        <Modal title="Your notifications" onClose={() => setNotices(false)}>
-          {notifications.length ? (
-            <>
-              <button className="text-button" onClick={() => setNotifications([])}>Clear all</button>
-              {notifications.map((n, i) => <div className="notice" key={`${n}-${i}`}><BellIcon /><p>{n}</p></div>)}
-            </>
-          ) : <p>You're all caught up.</p>}
-        </Modal>
-      )}
     </>
   );
 }

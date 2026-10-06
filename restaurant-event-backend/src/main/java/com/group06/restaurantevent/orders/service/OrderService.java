@@ -14,6 +14,8 @@ import com.group06.restaurantevent.orders.dto.response.OrderResponse;
 import com.group06.restaurantevent.orders.entity.FoodOrder;
 import com.group06.restaurantevent.orders.entity.FoodOrderItem;
 import com.group06.restaurantevent.orders.repository.FoodOrderRepository;
+import com.group06.restaurantevent.users.entity.User;
+import com.group06.restaurantevent.users.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,9 +32,11 @@ public class OrderService {
 
     private final FoodOrderRepository orderRepository;
     private final MenuService menuService;
+    private final UserRepository userRepository;
 
     @Transactional
-    public OrderResponse createOrder(Long customerId, CreateOrderRequest req) {
+    public OrderResponse createOrder(String customerEmail, CreateOrderRequest req) {
+        Long customerId = findUserByEmail(customerEmail).getId();
         if (req.getItems() == null || req.getItems().isEmpty())
             throw new BadRequestException("At least one item is required");
 
@@ -54,7 +58,7 @@ public class OrderService {
                 throw new BadRequestException("Quantity must be at least 1");
 
             MenuItem menuItem = menuService.findItem(ir.getMenuItemId());
-            if (!menuItem.isAvailable())
+            if (!menuItem.isAvailable() || !menuItem.isActive())
                 throw new ConflictException("Menu item '" + menuItem.getName() + "' is currently unavailable");
 
             BigDecimal lineTotal = menuItem.getPrice().multiply(BigDecimal.valueOf(ir.getQuantity()));
@@ -76,18 +80,21 @@ public class OrderService {
         return toResponse(orderRepository.save(order));
     }
 
-    public List<OrderResponse> myOrders(Long customerId) {
-        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)
+    @Transactional(readOnly = true)
+    public List<OrderResponse> myOrders(String customerEmail) {
+        return orderRepository.findByCustomerIdOrderByCreatedAtDesc(findUserByEmail(customerEmail).getId())
                 .stream().map(this::toResponse).toList();
     }
 
-    public OrderResponse getOrder(Long id, Long customerId) {
+    @Transactional(readOnly = true)
+    public OrderResponse getOrder(Long id, String customerEmail) {
         FoodOrder order = findOrder(id);
-        if (!order.getCustomerId().equals(customerId))
+        if (!order.getCustomerId().equals(findUserByEmail(customerEmail).getId()))
             throw new ForbiddenException("Access denied");
         return toResponse(order);
     }
 
+    @Transactional(readOnly = true)
     public List<OrderResponse> kitchenQueue() {
         return orderRepository.findByStatusInOrderByCreatedAtAsc(
                 List.of(OrderStatus.PENDING, OrderStatus.PREPARING, OrderStatus.READY))
@@ -120,6 +127,11 @@ public class OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }
 
+    private User findUserByEmail(String email) {
+        return userRepository.findByEmailAndIsActiveTrue(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+    }
+
     private String generateRef() {
         String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String suffix = String.format("%04X", new Random().nextInt(0xFFFF));
@@ -128,7 +140,7 @@ public class OrderService {
 
     private OrderType parseType(String s) {
         try { return OrderType.valueOf(s.toUpperCase()); }
-        catch (Exception e) { return OrderType.DINE_IN; }
+        catch (Exception e) { throw new BadRequestException("Invalid order type"); }
     }
 
     private OrderStatus parseStatus(String s) {

@@ -32,6 +32,14 @@ import java.util.List;
 public class ReservationController {
 
     private final ReservationService reservationService;
+    private final com.group06.restaurantevent.reservations.service.TableService tableService;
+
+    @GetMapping("/tables")
+    @PreAuthorize("hasAnyRole('CUSTOMER','ADMIN','MANAGER','WAITER','KITCHEN_STAFF')")
+    @Operation(summary = "List active dining spaces, including saved spaces without an availability search")
+    public ResponseEntity<ApiResponse<List<com.group06.restaurantevent.reservations.dto.response.TableResponse>>> diningSpaces() {
+        return ResponseEntity.ok(ApiResponse.success(tableService.getActiveTables()));
+    }
 
     @GetMapping("/availability")
     @Operation(summary = "Check table availability")

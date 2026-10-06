@@ -11,4 +11,7 @@ public class CategoryResponse {
     private String description;
     private int displayOrder;
     private boolean isActive;
+
+    @com.fasterxml.jackson.annotation.JsonProperty("isActive")
+    public boolean isActive() { return isActive; }
 }
