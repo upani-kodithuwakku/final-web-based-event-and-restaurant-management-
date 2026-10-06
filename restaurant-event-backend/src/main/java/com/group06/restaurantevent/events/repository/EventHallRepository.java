@@ -6,5 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface EventHallRepository extends JpaRepository<EventHall, Long> {
+    boolean existsByName(String name);
     List<EventHall> findByIsActiveTrueOrderByNameAsc();
 }
