@@ -61,7 +61,7 @@ public class BillingService {
 
     @Transactional
     public InvoiceResponse addItemAndRecalculate(Long invoiceId, String description,
-                                                 int qty, BigDecimal unitPrice) {
+                                                  int qty, BigDecimal unitPrice) {
         Invoice invoice = findInvoice(invoiceId);
         BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
 
@@ -114,7 +114,7 @@ public class BillingService {
                 .amount(invoice.getTotalAmount())
                 .method(method)
                 .status(PaymentStatus.PAID)
-                .paidAt(LocalDateTime.now())
+                .paidAt(LocalDateTime.now(java.time.ZoneId.of("Asia/Colombo")))
                 .gatewayReference("SIM-" + System.currentTimeMillis())
                 .build();
 
