@@ -27,6 +27,10 @@ public class RestaurantTable {
     @Column(nullable = false)
     private int capacity;
 
+    private String displayName;
+    private String description;
+    private String imageUrl;
+
     @Column(length = 50)
     private String location;
 
