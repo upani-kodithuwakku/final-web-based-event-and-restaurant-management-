@@ -1,0 +1,80 @@
+package com.group06.restaurantevent.auth.service;
+
+import com.group06.restaurantevent.auth.dto.request.LoginRequest;
+import com.group06.restaurantevent.auth.dto.request.RegisterRequest;
+import com.group06.restaurantevent.auth.dto.response.AuthResponse;
+import com.group06.restaurantevent.common.exception.ConflictException;
+import com.group06.restaurantevent.common.exception.ResourceNotFoundException;
+import com.group06.restaurantevent.security.JwtUtils;
+import com.group06.restaurantevent.users.entity.Role;
+import com.group06.restaurantevent.users.entity.User;
+import com.group06.restaurantevent.users.repository.RoleRepository;
+import com.group06.restaurantevent.users.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Set;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+public class AuthService {
+
+    private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtils jwtUtils;
+
+   @Transactional
+    public AuthResponse register(RegisterRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new ConflictException("Email already registered: " + request.getEmail());
+        }
+
+        Role customerRole = roleRepository.findByName("CUSTOMER")
+                .orElseThrow(() -> new ResourceNotFoundException("Role CUSTOMER not found. Run database seed first."));
+
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .phone(request.getPhone())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .isActive(true)
+                .roles(Set.of(customerRole))
+                .build();
+
+        user = userRepository.save(user);
+        String token = jwtUtils.generateToken(user.getEmail());
+        return buildResponse(token, user);
+    }
+   public AuthResponse login(LoginRequest request) {
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+
+        User user = userRepository.findByEmailAndIsActiveTrue(request.getEmail())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        String token = jwtUtils.generateToken(user.getEmail());
+        return buildResponse(token, user);
+    }
+
+   private AuthResponse buildResponse(String token, User user) {
+         Set<String> roles = user.getRoles().stream()
+                 .map(Role::getName)
+                 .collect(Collectors.toSet());
+
+         return AuthResponse.builder()
+                 .token(token)
+                 .type("Bearer")
+                 .userId(user.getId())
+                 .email(user.getEmail())
+                 .fullName(user.getFullName())
+                 .roles(roles)
+                 .build();
+     }
+ }

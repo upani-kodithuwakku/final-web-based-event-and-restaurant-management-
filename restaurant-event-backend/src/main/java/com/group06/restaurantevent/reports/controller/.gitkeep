@@ -1,0 +1,50 @@
+package com.group06.restaurantevent.reports.controller;
+
+import com.group06.restaurantevent.common.enums.ReservationStatus;
+import com.group06.restaurantevent.common.enums.TableStatus;
+import com.group06.restaurantevent.reservations.entity.RestaurantTable;
+import com.group06.restaurantevent.reservations.repository.RestaurantTableRepository;
+import com.group06.restaurantevent.reservations.repository.TableReservationRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/admin/reports")
+@RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+public class ReportController {
+
+private final TableReservationRepository reservationRepository;
+    private final RestaurantTableRepository tableRepository;
+
+    @GetMapping("/dashboard")
+    public ResponseEntity<Map<String, Object>> dashboard() {
+        List<RestaurantTable> tables = tableRepository.findAll();
+        long totalTables = tables.size();
+        long availableTables = tables.stream()
+                .filter(t -> t.getCurrentStatus() == TableStatus.AVAILABLE).count();
+        long occupiedTables = tables.stream()
+                .filter(t -> t.getCurrentStatus() == TableStatus.OCCUPIED).count();
+
+        long todayReservations = reservationRepository
+                .findByReservationDateAndStatusIn(LocalDate.now(),
+                        List.of(ReservationStatus.PENDING, ReservationStatus.CONFIRMED,
+                                ReservationStatus.CHECKED_IN)).size();
+
+  return ResponseEntity.ok(Map.of(
+                 "date", LocalDate.now().toString(),
+                 "todayReservations", todayReservations,
+                 "totalTables", totalTables,
+                 "availableTables", availableTables,
+                 "occupiedTables", occupiedTables
+         ));
+     }
+ }
