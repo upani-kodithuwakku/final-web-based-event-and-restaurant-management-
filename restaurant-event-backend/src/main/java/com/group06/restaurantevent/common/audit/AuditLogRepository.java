@@ -3,4 +3,5 @@ package com.group06.restaurantevent.common.audit;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+    java.util.List<AuditLog> findByEntityNameAndEntityIdOrderByCreatedAtDescIdDesc(String entityName, Long entityId);
 }
