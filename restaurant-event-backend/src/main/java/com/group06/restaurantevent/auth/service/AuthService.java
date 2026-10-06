@@ -30,8 +30,10 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final JwtUtils jwtUtils;
 
-   @Transactional
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
+        request.setEmail(request.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
+        request.setFullName(request.getFullName().trim());
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new ConflictException("Email already registered: " + request.getEmail());
         }
@@ -52,7 +54,8 @@ public class AuthService {
         String token = jwtUtils.generateToken(user.getEmail());
         return buildResponse(token, user);
     }
-   public AuthResponse login(LoginRequest request) {
+
+    public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
@@ -63,18 +66,18 @@ public class AuthService {
         return buildResponse(token, user);
     }
 
-   private AuthResponse buildResponse(String token, User user) {
-         Set<String> roles = user.getRoles().stream()
-                 .map(Role::getName)
-                 .collect(Collectors.toSet());
+    private AuthResponse buildResponse(String token, User user) {
+        Set<String> roles = user.getRoles().stream()
+                .map(Role::getName)
+                .collect(Collectors.toSet());
 
-         return AuthResponse.builder()
-                 .token(token)
-                 .type("Bearer")
-                 .userId(user.getId())
-                 .email(user.getEmail())
-                 .fullName(user.getFullName())
-                 .roles(roles)
-                 .build();
-     }
- }
+        return AuthResponse.builder()
+                .token(token)
+                .type("Bearer")
+                .userId(user.getId())
+                .email(user.getEmail())
+                .fullName(user.getFullName())
+                .roles(roles)
+                .build();
+    }
+}
