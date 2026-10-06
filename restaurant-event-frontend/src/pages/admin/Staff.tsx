@@ -21,6 +21,10 @@ export default function AdminStaff() {
   const [modal, setModal] = useState<'shift' | 'add-staff' | 'reset-pw' | null>(null);
   const [shiftForm, setShiftForm] = useState({ shiftDate: TODAY, startTime: '10:00', endTime: '18:00', roleRequired: 'WAITER', requiredStaffCount: 2 });
   const [staffForm, setStaffForm] = useState(BLANK_USER);
+  const [editShiftId, setEditShiftId] = useState<number>();
+  const [editStaff, setEditStaff] = useState<StaffDto>();
+  const [editJob, setEditJob] = useState('');
+  const [editEmployment, setEditEmployment] = useState('FULL_TIME');
   const [resetTarget, setResetTarget] = useState<StaffDto | null>(null);
   const [resetPw, setResetPw] = useState('');
   const [busy, setBusy] = useState(false);
@@ -46,6 +50,8 @@ export default function AdminStaff() {
 
   const createStaffUser = async () => {
     if (!staffForm.fullName || !staffForm.email || !staffForm.password) { setErr('Full name, email, and password are required.'); return; }
+    if (staffForm.phone && !/^[0-9]{10}$/.test(staffForm.phone)) { setErr("Phone number must contain exactly 10 digits."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(staffForm.email)) { setErr("Enter a valid email address."); return; }
     if (staffForm.password.length < 8) { setErr('Password must be at least 8 characters.'); return; }
     if (staffForm.roles.length === 0) { setErr('Select at least one role.'); return; }
     setBusy(true); setErr('');
@@ -58,10 +64,11 @@ export default function AdminStaff() {
   };
 
   const createShift = async () => {
+    if (!shiftForm.shiftDate || !shiftForm.startTime || !shiftForm.endTime || shiftForm.endTime <= shiftForm.startTime || !Number.isInteger(shiftForm.requiredStaffCount) || shiftForm.requiredStaffCount < 1) {setErr('Choose a valid date, a time range with end after start, and at least one staff member.');return;}
     setBusy(true); setErr('');
     try {
-      const created = await staffApi.createShift(shiftForm);
-      setShifts(all => [created, ...all]);
+      const created = editShiftId ? await staffApi.updateShift(editShiftId, shiftForm) : await staffApi.createShift(shiftForm);
+      setShifts(all => editShiftId ? all.map(s => s.id === editShiftId ? created : s) : [created, ...all]);
       setModal(null);
     } catch (e) { setErr(errorMessage(e)); }
     finally { setBusy(false); }
@@ -111,7 +118,7 @@ export default function AdminStaff() {
               </button>
             )}
             {tab === 'shifts' && (
-              <button className="button primary" onClick={() => { setShiftForm({ shiftDate: date, startTime: '10:00', endTime: '18:00', roleRequired: 'WAITER', requiredStaffCount: 2 }); setModal('shift'); }}>
+              <button className="button primary" onClick={() => { setEditShiftId(undefined); setShiftForm({ shiftDate: date, startTime: '10:00', endTime: '18:00', roleRequired: 'WAITER', requiredStaffCount: 2 }); setModal('shift'); }}>
                 <PlusIcon style={{ width: 14, height: 14 }} /> Add Shift
               </button>
             )}
@@ -149,6 +156,7 @@ export default function AdminStaff() {
                   {s.roles.map(r => <Badge key={r} status={r} />)}
                 </div>
               )}
+              <div className="button-row"><button className="button" onClick={() => {setEditStaff(s);setEditJob(s.jobTitle || '');setEditEmployment(s.employmentStatus);setErr('');}}>Edit profile</button><button className="text-button" disabled={busy} onClick={async () => { if(!window.confirm('Remove this staff profile? Upcoming shifts must be unassigned first.')) return;setBusy(true);try {await staffApi.remove(s.id);await loadStaff();} catch(e) {setErr(errorMessage(e));} finally {setBusy(false);}}}>Remove</button></div>
               <Badge status={s.isActive ? 'ACTIVE' : 'INACTIVE'} />
               <button className="text-button" style={{ fontSize: 12, marginTop: 8 }} onClick={() => { setResetTarget(s); setResetPw(''); setErr(''); setModal('reset-pw'); }}>
                 <KeyIcon style={{ width: 12, height: 12, display: 'inline', marginRight: 4 }} />Reset password
@@ -184,8 +192,10 @@ export default function AdminStaff() {
                     <span>{shift.assignments.length > 0 ? `${shift.assignments.length} assigned` : 'Unassigned'}</span>
                   </div>
                   <Badge status={shift.status} />
+                  <p className="small muted">{Math.max(0,shift.requiredStaffCount-shift.assignments.length)} more staff needed</p>
+                  {shift.status === 'SCHEDULED' && <div className="button-row"><button className="button" onClick={() => {setEditShiftId(shift.id);setShiftForm({...shift,startTime:shift.startTime.slice(0,5),endTime:shift.endTime.slice(0,5)});setModal('shift');}}>Edit</button><button className="text-button" onClick={async () => {if(!window.confirm('Cancel this shift?')) return;try {await staffApi.deleteShift(shift.id);await loadShifts();} catch(e) {setErr(errorMessage(e));}}}>Cancel</button></div>}
                   <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {staff.filter(s => s.isActive).map(s => (
+                    {staff.filter(s => s.isActive && s.roles?.includes(shift.roleRequired) && shift.status === 'SCHEDULED').map(s => (
                       <button
                         key={s.id}
                         onClick={() => toggleAssign(shift, s.id)}
@@ -208,6 +218,7 @@ export default function AdminStaff() {
         </div>
       )}
 
+      {editStaff && <Modal title="Edit staff profile" onClose={() => setEditStaff(undefined)}><form onSubmit={async e => {e.preventDefault();setBusy(true);try {await staffApi.update(editStaff.id,{userId:editStaff.userId,jobTitle:editJob,employmentStatus:editEmployment});await loadStaff();setEditStaff(undefined);} catch(e) {setErr(errorMessage(e));} finally {setBusy(false);}}}><label>Job title<input required maxLength={100} value={editJob} onChange={e => setEditJob(e.target.value)} /></label><label>Employment<select value={editEmployment} onChange={e => setEditEmployment(e.target.value)}>{EMP_STATUSES.map(x => <option key={x}>{x}</option>)}</select></label>{err && <p className="error" role="alert">{err}</p>}<button className="button primary" disabled={busy}>Save profile</button></form></Modal>}
       {/* Add Staff Member Modal */}
       {modal === 'add-staff' && (
         <Modal title="Add staff member" onClose={() => setModal(null)}>
@@ -274,7 +285,7 @@ export default function AdminStaff() {
               <label>Staff needed<input type="number" min={1} max={20} value={shiftForm.requiredStaffCount} onChange={e => setShiftForm({ ...shiftForm, requiredStaffCount: Number(e.target.value) })} /></label>
             </div>
             {err && <p className="error">{err}</p>}
-            <button className="button primary full" disabled={busy} onClick={createShift}>{busy ? 'Creating…' : 'Create shift'}</button>
+            <button className="button primary full" disabled={busy} onClick={createShift}>{busy ? 'Creating…' : editShiftId ? 'Save shift' : 'Create shift'}</button>
           </div>
         </Modal>
       )}

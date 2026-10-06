@@ -16,7 +16,7 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     List<ShiftAssignment> findByStaffIdOrderByCreatedAtDesc(Long staffId);
 
     @Query("SELECT a FROM ShiftAssignment a WHERE a.staffId = :staffId " +
-           "AND a.shift.shiftDate = :date " +
+           "AND a.shift.shiftDate = :date AND a.shift.status <> com.group06.restaurantevent.common.enums.ShiftStatus.CANCELLED " +
            "AND NOT (a.shift.endTime <= :startTime OR a.shift.startTime >= :endTime)")
     List<ShiftAssignment> findOverlapping(@Param("staffId") Long staffId,
                                           @Param("date") LocalDate date,
