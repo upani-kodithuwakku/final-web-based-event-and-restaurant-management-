@@ -45,6 +45,7 @@ public class ReservationService {
     private final UserRepository userRepository;
     private final TableService tableService;
     private final ReservationSubject reservationSubject;
+    private final com.group06.restaurantevent.payment.service.CustomerPaymentService paymentService;
     private final AuditLogRepository auditLogRepository;
 
     @Value("${app.reservation.default-duration-minutes:120}")
@@ -176,7 +177,7 @@ public class ReservationService {
         if (!reservation.getCustomer().getId().equals(customer.getId())) {
             throw new ForbiddenException("You do not have access to this reservation");
         }
-        return toResponse(applyCancel(reservation, request.getReason()));
+        return toResponse(applyCancel(reservation, request.getReason(), email));
     }
 
     /** Shared by the customer and staff edit flows so both enforce the same rules. */
@@ -230,7 +231,7 @@ public class ReservationService {
         return reservation;
     }
 
-    private TableReservation applyCancel(TableReservation reservation, String reason) {
+    private TableReservation applyCancel(TableReservation reservation, String reason, String actorEmail) {
         if (reservation.getStatus() == ReservationStatus.CANCELLED) {
             throw new BadRequestException("Reservation is already cancelled");
         }
@@ -242,6 +243,7 @@ public class ReservationService {
         reservation.setStatus(ReservationStatus.CANCELLED);
         reservation.setCancelReason(reason);
         reservationRepository.save(reservation);
+        paymentService.cancelReservationPayment(reservation.getId(), actorEmail);
         publishChange(reservation, previous, "CANCELLED");
         return reservation;
     }
@@ -273,7 +275,7 @@ public class ReservationService {
     public ReservationResponse cancelReservationAsStaff(Long id, String staffEmail, CancelReservationRequest request) {
         TableReservation reservation = findById(id);
         String before = summary(toResponse(reservation));
-        ReservationResponse cancelled = toResponse(applyCancel(reservation, request.getReason()));
+        ReservationResponse cancelled = toResponse(applyCancel(reservation, request.getReason(), staffEmail));
         audit(staffEmail, "RESERVATION_CANCELLED_BY_STAFF", id, before, summary(cancelled));
         return cancelled;
     }
