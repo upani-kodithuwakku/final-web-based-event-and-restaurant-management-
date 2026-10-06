@@ -106,7 +106,7 @@ export default function AdminDashboard() {
                 <span className="tl-time"><ClockIcon style={{ width: 14, height: 14, display: 'inline', marginRight: 4 }} />{r.startTime.slice(0, 5)}</span>
                 <div className="tl-body">
                   <b>{r.contactName}</b>
-                  <p>{r.table.tableNumber} · {tableTitle(r.table.location)} · {r.guestCount} guests</p>
+                  <p>{r.table.tableNumber} · {tableTitle(r.table.location, r.table)} · {r.guestCount} guests</p>
                 </div>
                 <Badge status={r.status} />
                 <div className="tl-actions">
