@@ -5,11 +5,11 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-    <groupId>org.springframework.boot</groupId>
-    <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.5.16</version>
-    <relativePath/>
-</parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.4</version>
+        <relativePath/>
+    </parent>
 
     <groupId>com.group06</groupId>
     <artifactId>restaurant-event-system</artifactId>
@@ -18,12 +18,13 @@
     <description>Web-Based Restaurant and Event Management System</description>
 
     <properties>
-    <java.version>25</java.version>
-    <lombok.version>1.18.48</lombok.version>
-    <jjwt.version>0.12.6</jjwt.version>
-    <springdoc.version>2.9.1</springdoc.version>
-    <mapstruct.version>1.6.2</mapstruct.version>
-</properties>
+        <java.version>21</java.version>
+        <lombok.version>1.18.38</lombok.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <springdoc.version>2.6.0</springdoc.version>
+        <mapstruct.version>1.6.2</mapstruct.version>
+    </properties>
+
     <dependencies>
         <!-- Spring Boot Core -->
         <dependency>
@@ -116,11 +117,15 @@
     </dependencies>
 
     <build>
+        <!-- Keep generated classes out of macOS cloud sync, which can create
+             cloud-only duplicate .class files that block Spring scanning. -->
+        <directory>${project.basedir}/target.nosync</directory>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
+                    <mainClass>com.group06.restaurantevent.RestaurantEventApplication</mainClass>
                     <excludes>
                         <exclude>
                             <groupId>org.projectlombok</groupId>

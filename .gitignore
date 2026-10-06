@@ -1,23 +1,14 @@
-# Local environment files
-.env
-.env.*
-!.env.example
-
-# Dependencies
-node_modules/
-.tools/
-restaurant-event-member-packages/
-
-# Build output
-target/
-dist/
-build/
-coverage/
-*.tsbuildinfo
+.DS_Store
+**/.env
+**/.env.local
+**/target/
+**/target.nosync/
+**/node_modules
+**/node_modules.nosync/
+**/dist/
 *.log
 
-# Editor and macOS files
-.claude/
-.idea/
-*.iml
-.DS_Store
+# Build and dependency folders kept outside cloud sync
+target.nosync/
+node_modules.nosync/
+node_modules.cloud-backup/
