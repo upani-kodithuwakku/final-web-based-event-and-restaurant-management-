@@ -50,6 +50,14 @@ public class NotificationFactory {
                 "PAYMENT");
     }
 
+    public Notification reservationChanged(User user, String reference, String action, String status) {
+        String title = action.equals("UPDATED") ? "Reservation Updated"
+                : "Reservation " + status.replace('_', ' ').toLowerCase();
+        return save(user, title, "Your reservation " + reference + " "
+                + (action.equals("UPDATED") ? "details have been updated." : "is now " + status.replace('_', ' ').toLowerCase() + "."),
+                "RESERVATION");
+    }
+
     private Notification save(User user, String title, String message, String type) {
         Notification n = Notification.builder()
                 .user(user)
