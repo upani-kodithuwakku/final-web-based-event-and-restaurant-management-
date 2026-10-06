@@ -49,6 +49,18 @@ Card payments use a simulated gateway, not a real card processor.
 
 ## Database scripts
 
+For a fresh database, open `database/00_full_schema.sql` in VS Code and run the
+entire file through a MySQL connection (for example, a MySQL extension), or use:
+
+```sh
+mysql -u root -p < database/00_full_schema.sql
+```
+
+This creates all 31 tables, including five marked planned tables, and the eight
+access roles. It does not create demo users or sample bookings. A VS Code editor
+alone cannot execute SQL; connect it to your running MySQL server first.
+Rerunning this file does not upgrade existing tables.
+
 Hibernate creates or updates the schema on startup. The numbered SQL scripts
 are manually run setup/data scripts, not an automatic migration runner. See
 [INTEGRATION_NOTES.md](docs/INTEGRATION_NOTES.md) for prerequisites and data scripts.
@@ -74,3 +86,22 @@ On this Mac, frontend dependencies are stored in ignored `node_modules.nosync`
 and linked from `node_modules`. The old cloud-backed dependency directory is
 preserved in ignored `node_modules.cloud-backup`. These directories are not
 part of the repository; a fresh checkout uses `npm ci` normally.
+
+## VS Code Java diagnostics
+
+The backend uses Lombok 1.18.48 with Java 21 source compatibility. If VS Code
+reports `Flexible Constructor Bodies` errors on Lombok annotations while Maven
+builds successfully, first check the Java extension version. Prerelease
+`redhat.java@1.57.2026093008` has a reported regression:
+https://github.com/redhat-developer/vscode-java/issues/4521. Use stable
+`redhat.java@1.56.0` until that issue is fixed.
+
+To choose the project Lombok version, open a Java file, click the language status indicator next
+to the Java language label, and select **Lombok → Configure Version → Use
+Project's Version**. Accept **Reload** so the Java analyzer loads the project's
+Lombok version instead of its older bundled copy.
+
+Workspace settings turn off the SQL Server extension's T-SQL IntelliSense and
+error checker because the database scripts use MySQL syntax. Execute these
+scripts through a MySQL connection or the MySQL CLI. Java error checking stays
+enabled.
