@@ -1,8 +1,6 @@
 package com.group06.restaurantevent.events.dto.request;
 
-import jakarta.validation.constraints.Future;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -11,9 +9,11 @@ import java.time.LocalTime;
 @Data
 public class CreateEventBookingRequest {
     @NotNull(message = "Hall is required")
+    @Positive
     private Long hallId;
 
     @NotNull(message = "Package is required")
+    @Positive
     private Long packageId;
 
     @NotNull(message = "Event date is required")
@@ -27,7 +27,9 @@ public class CreateEventBookingRequest {
     private LocalTime endTime;
 
     @Min(value = 1, message = "Guest count must be at least 1")
+    @Max(1000)
     private int guestCount;
 
+    @Size(max=1000)
     private String specialRequirements;
 }

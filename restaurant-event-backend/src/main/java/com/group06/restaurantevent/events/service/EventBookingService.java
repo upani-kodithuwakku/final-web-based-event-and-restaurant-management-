@@ -33,6 +33,7 @@ public class EventBookingService {
     private final EventBookingRepository bookingRepository;
     private final EventHallRepository hallRepository;
     private final EventPackageRepository packageRepository;
+    private final com.group06.restaurantevent.users.repository.UserRepository userRepository;
 
     public List<EventHallResponse> listHalls() {
         return hallRepository.findByIsActiveTrueOrderByNameAsc().stream().map(this::toHallResponse).toList();
@@ -43,12 +44,19 @@ public class EventBookingService {
     }
 
     @Transactional
-    public EventBookingResponse createBooking(Long customerId, CreateEventBookingRequest req) {
+    public EventBookingResponse createBooking(String email, CreateEventBookingRequest req) {
+        Long customerId = customerId(email);
         EventHall hall = hallRepository.findById(req.getHallId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event hall not found"));
         EventPackage pkg = packageRepository.findById(req.getPackageId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event package not found"));
 
+        if (!hall.isActive() || !pkg.isActive())
+            throw new BadRequestException("This hall or package is no longer available");
+        if (req.getGuestCount() > hall.getCapacity())
+            throw new BadRequestException("The selected hall is too small for your guest count");
+        if (!req.getEndTime().isAfter(req.getStartTime()))
+            throw new BadRequestException("End time must be after start time");
         if (req.getGuestCount() < pkg.getMinimumGuests() || req.getGuestCount() > pkg.getMaximumGuests())
             throw new BadRequestException("Guest count must be between " + pkg.getMinimumGuests()
                     + " and " + pkg.getMaximumGuests() + " for this package");
@@ -76,12 +84,16 @@ public class EventBookingService {
         return toResponse(bookingRepository.save(booking));
     }
 
-    public List<EventBookingResponse> myBookings(Long customerId) {
+    @Transactional(readOnly = true)
+    public List<EventBookingResponse> myBookings(String email) {
+        Long customerId = customerId(email);
         return bookingRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)
                 .stream().map(this::toResponse).toList();
     }
 
-    public EventBookingResponse getBooking(Long id, Long customerId) {
+    @Transactional(readOnly = true)
+    public EventBookingResponse getBooking(Long id, String email) {
+        Long customerId = customerId(email);
         EventBooking b = findBooking(id);
         if (!b.getCustomerId().equals(customerId))
             throw new ForbiddenException("Access denied");
@@ -89,7 +101,8 @@ public class EventBookingService {
     }
 
     @Transactional
-    public EventBookingResponse cancelBooking(Long id, Long customerId) {
+    public EventBookingResponse cancelBooking(Long id, String email) {
+        Long customerId = customerId(email);
         EventBooking b = findBooking(id);
         if (!b.getCustomerId().equals(customerId))
             throw new ForbiddenException("Access denied");
@@ -99,6 +112,7 @@ public class EventBookingService {
         return toResponse(bookingRepository.save(b));
     }
 
+    @Transactional(readOnly = true)
     public List<EventBookingResponse> allBookings() {
         return bookingRepository.findAllByOrderByEventDateDesc().stream().map(this::toResponse).toList();
     }
@@ -117,12 +131,18 @@ public class EventBookingService {
         EventBooking b = findBooking(id);
         if (b.getStatus() != EventBookingStatus.PENDING)
             throw new BadRequestException("Only PENDING bookings can be rejected");
-        String reason = body.get("rejectionReason");
-        if (reason == null || reason.isBlank())
+        String reason = body.get("reason");
+        if (reason == null) reason = body.get("rejectionReason");
+        if (reason == null || reason.isBlank() || reason.length() > 500)
             throw new BadRequestException("Rejection reason is required");
         b.setStatus(EventBookingStatus.REJECTED);
         b.setRejectionReason(reason);
         return toResponse(bookingRepository.save(b));
+    }
+
+    private Long customerId(String email) {
+        return userRepository.findByEmailAndIsActiveTrue(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Customer not found")).getId();
     }
 
     private EventBooking findBooking(Long id) {
