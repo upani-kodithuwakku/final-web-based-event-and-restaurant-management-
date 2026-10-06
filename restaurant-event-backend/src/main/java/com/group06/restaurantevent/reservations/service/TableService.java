@@ -20,6 +20,7 @@ import java.util.List;
 public class TableService {
 
     private final RestaurantTableRepository tableRepository;
+    private final com.group06.restaurantevent.reservations.repository.TableReservationRepository reservations;
 
     public List<TableResponse> getAllTables() {
         return tableRepository.findAll().stream().map(this::toResponse).toList();
@@ -41,6 +42,9 @@ public class TableService {
         RestaurantTable table = RestaurantTable.builder()
                 .tableNumber(request.getTableNumber())
                 .capacity(request.getCapacity())
+                .displayName(request.getDisplayName())
+                .description(request.getDescription())
+                .imageUrl(request.getImageUrl())
                 .location(request.getLocation())
                 .currentStatus(TableStatus.AVAILABLE)
                 .isActive(true)
@@ -55,8 +59,12 @@ public class TableService {
                 && tableRepository.existsByTableNumber(request.getTableNumber())) {
             throw new ConflictException("Table number already in use: " + request.getTableNumber());
         }
-        table.setTableNumber(request.getTableNumber());
+        if(reservations.findAll().stream().anyMatch(r -> r.getTable().getId().equals(id) && !r.getReservationDate().isBefore(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Colombo"))) && java.util.List.of(com.group06.restaurantevent.common.enums.ReservationStatus.PENDING, com.group06.restaurantevent.common.enums.ReservationStatus.CONFIRMED, com.group06.restaurantevent.common.enums.ReservationStatus.CHECKED_IN).contains(r.getStatus()) && r.getGuestCount()>request.getCapacity())) throw new ConflictException("Capacity cannot be reduced below an upcoming reservation's guest count");
+        table.setTableNumber(request.getTableNumber().trim());
         table.setCapacity(request.getCapacity());
+        if(request.getDisplayName()!=null) table.setDisplayName(request.getDisplayName());
+        if(request.getDescription()!=null) table.setDescription(request.getDescription());
+        if(request.getImageUrl()!=null) table.setImageUrl(request.getImageUrl());
         table.setLocation(request.getLocation());
         return toResponse(tableRepository.save(table));
     }
@@ -74,6 +82,7 @@ public class TableService {
         if (table.getCurrentStatus() == TableStatus.OCCUPIED || table.getCurrentStatus() == TableStatus.RESERVED) {
             throw new BadRequestException("Cannot deactivate a table that is currently reserved or occupied");
         }
+        if(reservations.findAll().stream().anyMatch(r -> r.getTable().getId().equals(id) && !r.getReservationDate().isBefore(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Colombo"))) && java.util.List.of(com.group06.restaurantevent.common.enums.ReservationStatus.PENDING, com.group06.restaurantevent.common.enums.ReservationStatus.CONFIRMED, com.group06.restaurantevent.common.enums.ReservationStatus.CHECKED_IN).contains(r.getStatus()))) throw new ConflictException("Table has active or upcoming reservations");
         table.setActive(false);
         tableRepository.save(table);
     }
@@ -88,6 +97,9 @@ public class TableService {
                 .id(t.getId())
                 .tableNumber(t.getTableNumber())
                 .capacity(t.getCapacity())
+                .displayName(t.getDisplayName())
+                .description(t.getDescription())
+                .imageUrl(t.getImageUrl())
                 .location(t.getLocation())
                 .currentStatus(t.getCurrentStatus())
                 .isActive(t.isActive())
