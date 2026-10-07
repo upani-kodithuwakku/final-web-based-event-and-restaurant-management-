@@ -59,4 +59,10 @@ public class EventController {
                                                        @AuthenticationPrincipal UserDetails user) {
         return ResponseEntity.ok(service.cancelBooking(id, user.getUsername()));
     }
+    @PutMapping("/bookings/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<EventBookingResponse> update(@PathVariable Long id, @AuthenticationPrincipal UserDetails user,
+                                                      @Valid @RequestBody CreateEventBookingRequest request) {
+        return ResponseEntity.ok(service.updateBooking(id, user.getUsername(), request));
+    }
 }
