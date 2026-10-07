@@ -55,8 +55,8 @@ public class StaffController {
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<Void> toggleStatus(@PathVariable Long id,
-                                             @RequestBody Map<String, Boolean> body) {
-        staffService.toggleActive(id, body.getOrDefault("active", true));
+                                             @Valid @RequestBody com.group06.restaurantevent.users.dto.request.UpdateUserStatusRequest body) {
+        staffService.toggleActive(id, body.getActive());
         return ResponseEntity.noContent().build();
     }
 

@@ -72,6 +72,8 @@ public class MenuService {
     public void deleteCategory(Long id) {
         MenuCategory cat = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
+        if (itemRepository.findAll().stream().anyMatch(i -> i.isActive() && i.getCategory().getId().equals(id)))
+            throw new com.group06.restaurantevent.common.exception.ConflictException("Move or remove this category's dishes before removing the category");
         cat.setActive(false);
         categoryRepository.save(cat);
     }

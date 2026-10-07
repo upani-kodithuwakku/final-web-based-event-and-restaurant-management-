@@ -51,6 +51,17 @@ public class NotificationService {
         notificationRepository.saveAll(unread);
     }
 
+    @Transactional
+    public void deleteAll(String email) { notificationRepository.deleteByUserId(findActiveUser(email).getId()); }
+
+    @Transactional
+    public void deleteOne(Long id, String email) {
+        Long userId = findActiveUser(email).getId();
+        Notification note = notificationRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Notification not found"));
+        if (!note.getUser().getId().equals(userId)) throw new ForbiddenException("Access denied");
+        notificationRepository.delete(note);
+    }
+
     private User findActiveUser(String email) {
         return userRepository.findByEmailAndIsActiveTrue(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));

@@ -49,10 +49,16 @@ public class NotificationController {
         return ResponseEntity.noContent().build();
     }
 
-    /** Kept for existing callers; same as PATCH /read-all. */
+    /** Remove only the signed-in user's notifications. */
     @DeleteMapping
     public ResponseEntity<Void> clearAll(@AuthenticationPrincipal UserDetails principal) {
-        notificationService.markAllRead(principal.getUsername());
+        notificationService.deleteAll(principal.getUsername());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteOne(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        notificationService.deleteOne(id, principal.getUsername());
         return ResponseEntity.noContent().build();
     }
 }

@@ -128,7 +128,7 @@ export default function AdminTables() {
             <label>Photo URL<input type="url" maxLength={255} value={form.imageUrl || ''} onChange={e => setForm({...form,imageUrl:e.target.value})} placeholder="https://…" /></label>
             <label>Table number<input value={form.tableNumber} onChange={e => setForm({ ...form, tableNumber: e.target.value })} placeholder="e.g. T11" /></label>
             <div className="form-row">
-              <label>Capacity (guests)<input type="number" min={1} max={30} value={form.capacity} onChange={e => setForm({ ...form, capacity: Number(e.target.value) })} /></label>
+              <label>Capacity (guests)<input type="number" min={1} max={200} value={form.capacity} onChange={e => setForm({ ...form, capacity: Number(e.target.value) })} /></label>
               <label>Location / seating area
                 <select value={form.location} onChange={e => setForm({ ...form, location: e.target.value })}>
                   {LOCATIONS.map(l => <option key={l} value={l}>{l.charAt(0) + l.slice(1).toLowerCase()}</option>)}

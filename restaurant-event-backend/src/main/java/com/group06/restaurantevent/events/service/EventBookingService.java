@@ -35,6 +35,9 @@ public class EventBookingService {
     private final EventPackageRepository packageRepository;
     private final com.group06.restaurantevent.users.repository.UserRepository userRepository;
 
+    private final com.group06.restaurantevent.payment.repository.CustomerPaymentRepository payments;
+    private final com.group06.restaurantevent.billing.repository.InvoiceRepository invoices;
+
     public List<EventHallResponse> listHalls() {
         return hallRepository.findByIsActiveTrueOrderByNameAsc().stream().map(this::toHallResponse).toList();
     }
@@ -138,6 +141,32 @@ public class EventBookingService {
         b.setStatus(EventBookingStatus.REJECTED);
         b.setRejectionReason(reason);
         return toResponse(bookingRepository.save(b));
+    }
+
+    @Transactional
+    public EventBookingResponse updateBooking(Long id, String email, CreateEventBookingRequest request) {
+        EventBooking booking = findBooking(id);
+        if (!booking.getCustomerId().equals(customerId(email))) throw new ForbiddenException("Access denied");
+        if (booking.getStatus() != EventBookingStatus.PENDING && booking.getStatus() != EventBookingStatus.CONFIRMED)
+            throw new ConflictException("Only pending or confirmed enquiries can be edited");
+        if (!booking.getEventDate().atTime(booking.getStartTime()).isAfter(LocalDateTime.now(java.time.ZoneId.of("Asia/Colombo"))))
+            throw new ConflictException("Past event bookings cannot be edited");
+        if (payments.existsByEventBookingId(id) || invoices.findByEventBookingId(id).isPresent())
+            throw new ConflictException("Contact staff to change an event with a payment or invoice");
+        EventHall hall = hallRepository.findById(request.getHallId()).orElseThrow(() -> new ResourceNotFoundException("Event hall not found"));
+        EventPackage pkg = packageRepository.findById(request.getPackageId()).orElseThrow(() -> new ResourceNotFoundException("Event package not found"));
+        if (!hall.isActive() || !pkg.isActive()) throw new BadRequestException("Choose an active hall and package");
+        if (request.getGuestCount() > hall.getCapacity() || request.getGuestCount() < pkg.getMinimumGuests() || request.getGuestCount() > pkg.getMaximumGuests())
+            throw new BadRequestException("Guest count must fit the hall and package");
+        if (!request.getEndTime().isAfter(request.getStartTime())) throw new BadRequestException("End time must be after start time");
+        if (bookingRepository.findOverlapping(hall.getId(), request.getEventDate(), request.getStartTime(), request.getEndTime()).stream().anyMatch(b -> !b.getId().equals(id)))
+            throw new ConflictException("This hall is already booked for the selected time slot");
+        booking.setHall(hall); booking.setEventPackage(pkg); booking.setEventDate(request.getEventDate());
+        booking.setStartTime(request.getStartTime()); booking.setEndTime(request.getEndTime());
+        booking.setGuestCount(request.getGuestCount()); booking.setSpecialRequirements(request.getSpecialRequirements());
+        booking.setDepositAmount(pkg.getBasePrice().multiply(new BigDecimal("0.30")).setScale(2, java.math.RoundingMode.HALF_UP));
+        booking.setStatus(EventBookingStatus.PENDING);
+        return toResponse(bookingRepository.save(booking));
     }
 
     private Long customerId(String email) {

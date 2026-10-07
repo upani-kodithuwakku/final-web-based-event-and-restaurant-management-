@@ -61,4 +61,8 @@ public class InventoryController {
         inventoryService.deleteItem(id);
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/items/{id}/movements")
+    public List<com.group06.restaurantevent.inventory.entity.StockMovement> movements(@PathVariable Long id) {
+        return inventoryService.history(id);
+    }
 }

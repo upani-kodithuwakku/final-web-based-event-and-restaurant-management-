@@ -46,6 +46,8 @@ export const notificationApi = {
  unreadCount: async () => (await api.get<{count: number}>('/notifications/unread-count')).data.count,
  markRead: async (id: number) => (await api.patch<NotificationDto>(`/notifications/${id}/read`)).data,
  markAllRead: async () => { await api.patch('/notifications/read-all'); },
+ remove: async (id: number) => {await api.delete(`/notifications/${id}`);},
+ clear: async () => {await api.delete('/notifications');},
 };
 export type DashboardReportDto = {
  date: string; todayReservations: number; totalTables: number; availableTables: number; occupiedTables: number;
@@ -96,8 +98,9 @@ export const menuApi = {
 // Events (customer) — returns plain arrays
 export type EventHallDto = { id: number; name: string; capacity: number; location: string; description: string; isActive: boolean };
 export type EventPackageDto = { id: number; name: string; eventType: string; description: string; basePrice: number; minimumGuests: number; maximumGuests: number; isActive: boolean };
-export type EventBookingDto = { id: number; bookingReference: string; hallName: string; packageName: string; eventDate: string; startTime: string; endTime: string; guestCount: number; status: string; depositAmount: number; specialRequirements?: string; rejectionReason?: string };
+export type EventBookingDto = { id: number; bookingReference: string; hallId: number; packageId: number; hallName: string; packageName: string; eventDate: string; startTime: string; endTime: string; guestCount: number; status: string; depositAmount: number; specialRequirements?: string; rejectionReason?: string };
 export const eventApi = {
+ update: async (id: number, body: object) => (await api.put<EventBookingDto>(`/events/bookings/${id}`,body)).data,
  halls: async () => (await api.get<(EventHallDto & { active?: boolean })[]>('/events/halls')).data.map(normalizeEvent),
  packages: async () => (await api.get<(EventPackageDto & { active?: boolean })[]>('/events/packages')).data.map(normalizeEvent),
  book: async (body: object) => (await api.post<EventBookingDto>('/events/bookings', body)).data,
@@ -141,6 +144,7 @@ export const staffApi = {
 export type InvoiceDto = { id: number; invoiceNumber: string; customerId: number; invoiceType: string; subtotal: number; serviceCharge: number; taxAmount: number; discountAmount: number; totalAmount: number; status: string; issuedAt: string };
 export type PaymentDto = { id: number; paymentReference: string; invoiceId: number; amount: number; method: string; status: string; paidAt?: string };
 export const billingApi = {
+ voidInvoice: async (id: number) => (await api.patch<InvoiceDto>(`/billing/invoices/${id}/void`)).data,
  invoices: async () => (await api.get<InvoiceDto[]>('/billing/invoices')).data,
  myInvoices: async () => (await api.get<InvoiceDto[]>('/billing/invoices/my')).data,
  createInvoice: async (body: object) => (await api.post<InvoiceDto>('/billing/invoices', body)).data,
@@ -190,13 +194,17 @@ export const customerPaymentApi = {
 };
 
 // Kitchen (kitchen staff/admin)
-export type OrderDto = { id: number; orderReference: string; customerId: number; tableId?: number; specialNote?: string; status: string; subtotal: number; items: {id: number; menuItemId: number; itemNameSnapshot: string; unitPriceSnapshot: number; quantity: number; lineTotal: number; specialNote?: string}[]; createdAt: string };
+export type OrderDto = { id: number; orderReference: string; customerId: number; orderType: string; tableId?: number; reservationId?: number; specialNote?: string; status: string; subtotal: number; items: {id: number; menuItemId: number; itemNameSnapshot: string; unitPriceSnapshot: number; quantity: number; lineTotal: number; specialNote?: string}[]; createdAt: string };
 export const orderApi = {
+ update: async (id: number, body: object) => (await api.put<OrderDto>(`/orders/${id}`,body)).data,
+ cancel: async (id: number) => (await api.patch<OrderDto>(`/orders/${id}/cancel`)).data,
  create: async (body: { orderType: string; specialNote: string; items: { menuItemId: number; quantity: number }[] }) => (await api.post<OrderDto>('/orders', body)).data,
  mine: async () => (await api.get<OrderDto[]>('/orders/my')).data,
 };
-export type FoodRequestDto = { id: number; customerName: string; itemName?: string; message: string; status: string; createdAt: string };
+export type FoodRequestDto = { id: number; customerName: string; menuItemId?: number; itemName?: string; message: string; status: string; createdAt: string };
 export const foodRequestApi = {
+ update: async (id: number, body: { menuItemId?: number; message: string }) => (await api.put<FoodRequestDto>(`/food-requests/${id}`, body)).data,
+ withdraw: async (id: number) => { await api.delete(`/food-requests/${id}`); },
  create: async (body: { menuItemId?: number; message: string }) => (await api.post<FoodRequestDto>('/food-requests', body)).data,
  mine: async () => (await api.get<FoodRequestDto[]>('/food-requests/my')).data,
  queue: async () => (await api.get<FoodRequestDto[]>('/food-requests')).data,
@@ -211,6 +219,8 @@ export const authenticate = async (register: boolean, values: Record<string, str
 
 export type MenuItemInput = Omit<MenuItemDto, 'id' | 'isActive'>;
 export const adminMenuApi = {
+ updateCategory: async (id: number, body: {name: string; description: string; displayOrder: number}) => (await api.put<MenuCategoryDto>(`/admin/menu/categories/${id}`,body)).data,
+ removeCategory: async (id: number) => {await api.delete(`/admin/menu/categories/${id}`);},
  list: async () => (await api.get<MenuItemDto[]>('/admin/menu/items')).data,
  create: async (body: MenuItemInput) => (await api.post<MenuItemDto>('/admin/menu/items', body)).data,
  update: async (id: number, body: MenuItemInput) => (await api.put<MenuItemDto>(`/admin/menu/items/${id}`, body)).data,
@@ -226,4 +236,24 @@ export const supplierApi = {
  create: async (body: SupplierInput) => (await api.post<SupplierDto>('/suppliers', body)).data,
  update: async (id: number, body: SupplierInput) => (await api.put<SupplierDto>(`/suppliers/${id}`, body)).data,
  remove: async (id: number) => { await api.delete(`/suppliers/${id}`); },
+};
+
+export type PurchaseOrderDto = {id:number;poNumber:string;supplierId:number;supplierName:string;status:string;notes?:string;orderedAt:string;receivedAt?:string;items:{inventoryItemId:number;itemName:string;quantityOrdered:number;quantityReceived:number;unitCost:number}[]};
+export type PurchaseOrderInput = {supplierId:number;notes:string;items:{inventoryItemId:number;quantity:number;unitCost:number}[]};
+export const purchaseOrderApi = {
+ list:async()=>(await api.get<PurchaseOrderDto[]>('/inventory/purchase-orders')).data,
+ create:async(body:PurchaseOrderInput)=>(await api.post<PurchaseOrderDto>('/inventory/purchase-orders',body)).data,
+ update:async(id:number,body:PurchaseOrderInput)=>(await api.put<PurchaseOrderDto>(`/inventory/purchase-orders/${id}`,body)).data,
+ receive:async(id:number)=>(await api.patch<PurchaseOrderDto>(`/inventory/purchase-orders/${id}/receive`)).data,
+ cancel:async(id:number)=>{await api.delete(`/inventory/purchase-orders/${id}`);},
+};
+export type StockMovementDto = {id:number;movementType:string;quantityChange:number;referenceType?:string;referenceId?:number;note?:string;createdAt:string};
+export const stockHistoryApi = {list:async(id:number)=>(await api.get<StockMovementDto[]>(`/inventory/items/${id}/movements`)).data};
+export type AttendanceDto = {id:number;assignmentId:number;staffId:number;staffName:string;shiftDate:string;status:string;checkInAt?:string;checkOutAt?:string};
+export type AttendanceInput = {assignmentId:number;status:string;checkInAt:string|null;checkOutAt:string|null};
+export const attendanceApi = {
+ list:async()=>(await api.get<AttendanceDto[]>('/admin/staff/attendance')).data,
+ create:async(body:AttendanceInput)=>(await api.post<AttendanceDto>('/admin/staff/attendance',body)).data,
+ update:async(id:number,body:AttendanceInput)=>(await api.put<AttendanceDto>(`/admin/staff/attendance/${id}`,body)).data,
+ remove:async(id:number)=>{await api.delete(`/admin/staff/attendance/${id}`);},
 };

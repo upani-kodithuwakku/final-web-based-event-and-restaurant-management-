@@ -64,7 +64,7 @@ export default function AdminStaff() {
   };
 
   const createShift = async () => {
-    if (!shiftForm.shiftDate || !shiftForm.startTime || !shiftForm.endTime || shiftForm.endTime <= shiftForm.startTime || !Number.isInteger(shiftForm.requiredStaffCount) || shiftForm.requiredStaffCount < 1) {setErr('Choose a valid date, a time range with end after start, and at least one staff member.');return;}
+    if (!shiftForm.shiftDate || !shiftForm.startTime || !shiftForm.endTime || shiftForm.endTime <= shiftForm.startTime || !Number.isInteger(shiftForm.requiredStaffCount) || shiftForm.requiredStaffCount < 1 || shiftForm.requiredStaffCount > 100) {setErr('Choose a valid date, a time range with end after start, and at least one staff member.');return;}
     setBusy(true); setErr('');
     try {
       const created = editShiftId ? await staffApi.updateShift(editShiftId, shiftForm) : await staffApi.createShift(shiftForm);
@@ -282,7 +282,7 @@ export default function AdminStaff() {
                   {STAFF_ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
                 </select>
               </label>
-              <label>Staff needed<input type="number" min={1} max={20} value={shiftForm.requiredStaffCount} onChange={e => setShiftForm({ ...shiftForm, requiredStaffCount: Number(e.target.value) })} /></label>
+              <label>Staff needed<input type="number" min={1} max={100} value={shiftForm.requiredStaffCount} onChange={e => setShiftForm({ ...shiftForm, requiredStaffCount: Number(e.target.value) })} /></label>
             </div>
             {err && <p className="error">{err}</p>}
             <button className="button primary full" disabled={busy} onClick={createShift}>{busy ? 'Creating…' : editShiftId ? 'Save shift' : 'Create shift'}</button>

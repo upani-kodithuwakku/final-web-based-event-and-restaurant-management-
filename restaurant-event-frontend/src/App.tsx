@@ -21,6 +21,8 @@ import AdminTables from './pages/admin/Tables';
 import AdminReservations from './pages/admin/AdminReservations';
 import AdminEvents from './pages/admin/AdminEvents';
 import AdminInventory from './pages/admin/Inventory';
+import Attendance from './pages/admin/Attendance';
+import PurchaseOrders from './pages/admin/PurchaseOrders';
 import AdminStaff from './pages/admin/Staff';
 import AdminReports from './pages/admin/Reports';
 import KitchenOrders from './pages/admin/Kitchen';
@@ -79,6 +81,8 @@ function AppRoutes() {
         <Route path="reservations" element={<AdminReservations />} />
         <Route path="events" element={<AdminEvents />} />
         <Route path="inventory" element={<AdminInventory />} />
+        <Route path="purchases" element={<PurchaseOrders />} />
+        <Route path="attendance" element={<Attendance />} />
         <Route path="staff" element={<AdminStaff />} />
         <Route path="reports" element={<AdminReports />} />
         <Route path="kitchen" element={<KitchenOrders />} />

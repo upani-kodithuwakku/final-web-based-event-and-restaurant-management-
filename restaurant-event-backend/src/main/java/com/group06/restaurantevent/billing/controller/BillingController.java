@@ -5,7 +5,8 @@ import com.group06.restaurantevent.billing.dto.request.CreatePaymentRequest;
 import com.group06.restaurantevent.billing.dto.response.InvoiceResponse;
 import com.group06.restaurantevent.billing.dto.response.PaymentResponse;
 import com.group06.restaurantevent.billing.service.BillingService;
-import com.group06.restaurantevent.users.entity.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,13 +37,13 @@ public class BillingController {
     }
 
     @GetMapping("/invoices/{id}")
-    public ResponseEntity<InvoiceResponse> getInvoice(@PathVariable Long id) {
-        return ResponseEntity.ok(billingService.getInvoice(id));
+    public ResponseEntity<InvoiceResponse> getInvoice(@PathVariable Long id, Authentication auth) {
+        return ResponseEntity.ok(billingService.getInvoiceForUser(id, auth.getName(), billingStaff(auth)));
     }
 
     @GetMapping("/invoices/my")
-    public ResponseEntity<List<InvoiceResponse>> myInvoices(@AuthenticationPrincipal User user) {
-        return ResponseEntity.ok(billingService.myInvoices(user.getId()));
+    public ResponseEntity<List<InvoiceResponse>> myInvoices(@AuthenticationPrincipal UserDetails user) {
+        return ResponseEntity.ok(billingService.myInvoicesForEmail(user.getUsername()));
     }
 
     @PostMapping("/payments")
@@ -52,7 +53,16 @@ public class BillingController {
     }
 
     @GetMapping("/payments/{invoiceId}")
-    public ResponseEntity<List<PaymentResponse>> getPayments(@PathVariable Long invoiceId) {
-        return ResponseEntity.ok(billingService.getPaymentsForInvoice(invoiceId));
+    public ResponseEntity<List<PaymentResponse>> getPayments(@PathVariable Long invoiceId, Authentication auth) {
+        return ResponseEntity.ok(billingService.getPaymentsForUser(invoiceId, auth.getName(), billingStaff(auth)));
+    }
+    @PatchMapping("/invoices/{id}/void")
+    @PreAuthorize("hasAnyRole('CASHIER','ADMIN','MANAGER')")
+    public ResponseEntity<InvoiceResponse> voidInvoice(@PathVariable Long id) {
+        return ResponseEntity.ok(billingService.voidInvoice(id));
+    }
+
+    private boolean billingStaff(Authentication auth) {
+        return auth.getAuthorities().stream().anyMatch(a -> java.util.Set.of("ROLE_ADMIN", "ROLE_MANAGER", "ROLE_CASHIER").contains(a.getAuthority()));
     }
 }

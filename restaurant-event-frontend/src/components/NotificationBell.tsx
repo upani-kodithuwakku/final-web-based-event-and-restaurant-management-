@@ -70,8 +70,9 @@ export default function NotificationBell() {
               {unread > 0 && <button className="text-button" onClick={markAllRead}>Mark all as read</button>}
             </div>
           )}
+          {items.length > 0 && <button className="text-button" onClick={async () => {if(!window.confirm('Delete all your notifications?')) return;try {await notificationApi.clear();setItems([]);setUnread(0);} catch(e) {setError(errorMessage(e));}}}>Delete all notifications</button>}
           {items.map(n => (
-            <button key={n.id} className={`notice server${n.isRead ? '' : ' unread'}`} onClick={() => void markRead(n)}>
+            <div key={n.id}><button key={n.id} className={`notice server${n.isRead ? '' : ' unread'}`} onClick={() => void markRead(n)}>
               <BellIcon />
               <span>
                 <b>{n.title}</b>
@@ -79,7 +80,7 @@ export default function NotificationBell() {
                 <small>{formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}</small>
               </span>
               {n.isRead ? <CheckIcon className="notice-read" aria-label="Read" /> : <i className="notice-dot" aria-label="Unread" />}
-            </button>
+            </button><button className="text-button" aria-label={`Delete ${n.title}`} onClick={async () => {try {await notificationApi.remove(n.id);setItems(all => all.filter(x => x.id !== n.id));await refreshCount();}catch(e){setError(errorMessage(e));}}}>Delete</button></div>
           ))}
           {deviceNotes.length > 0 && <>
             <div className="notice-head">

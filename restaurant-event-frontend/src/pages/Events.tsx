@@ -1,3 +1,4 @@
+import EditEventBooking from '../components/EditEventBooking';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -59,6 +60,7 @@ export default function Events() {
   const { summary, error: paymentError } = useBookingPayments(customer, `${paymentRefresh}-${myBookings.map(b => `${b.id}:${b.status}`).join(',')}`);
   const [loading, setLoading] = useState(true);
   const [catalogError, setCatalogError] = useState('');
+  const [editingBooking, setEditingBooking] = useState<EventBookingDto | null>(null);
   const [bookingError, setBookingError] = useState('');
   const [category, setCategory] = useState('');
   const [search, setSearch] = useState('');
@@ -296,7 +298,8 @@ export default function Events() {
                   {booking.status === 'PENDING'
                     ? <>
                         <p className="muted small">Awaiting coordinator confirmation. Payment opens once confirmed.</p>
-                        <button className="text-button" disabled={busy} onClick={() => void cancel(booking.id)}>Cancel enquiry</button>
+                        <button className="text-button" disabled={busy} onClick={() => setEditingBooking(booking)}>Edit enquiry</button>
+                        <button className="text-button" disabled={busy} onClick={() => {if(window.confirm('Cancel this event enquiry?')) void cancel(booking.id);}}>Cancel enquiry</button>
                       </>
                     : <>
                         {bill && <><strong>{money(bill.total)}</strong><BookingPaymentBadge payment={bill} /></>}
@@ -381,6 +384,7 @@ export default function Events() {
           }
         </Modal>
       )}
+      {editingBooking && <EditEventBooking booking={editingBooking} halls={halls} packages={packages} onClose={() => setEditingBooking(null)} onSave={updated => {setMyBookings(all => all.map(b => b.id===updated.id?updated:b));setEditingBooking(null);setPaymentRefresh(n=>n+1);}} />}
     </div>
   );
 }

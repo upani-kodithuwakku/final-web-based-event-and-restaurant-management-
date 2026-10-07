@@ -15,7 +15,7 @@ export default function ResetPassword() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault(); setError('');
-    if (password.length < 8) return setError('Password must be at least 8 characters.');
+    if (password.length < 8 || password.length > 72) return setError('Password must be between 8 and 72 characters.');
     if (password !== confirm) return setError('The two passwords do not match.');
     setBusy(true);
     try { await passwordResetApi.reset(token, password); setDone(true); }
@@ -40,7 +40,7 @@ export default function ResetPassword() {
           </div>
         ) : (
           <form onSubmit={submit}>
-            <label>New password<input required type="password" autoComplete="new-password" minLength={8} placeholder="At least 8 characters"
+            <label>New password<input required type="password" autoComplete="new-password" minLength={8} maxLength={72} placeholder="At least 8 characters"
               value={password} onChange={e => setPassword(e.target.value)} /></label>
             <label>Confirm new password<input required type="password" autoComplete="new-password" placeholder="Type it again"
               value={confirm} onChange={e => setConfirm(e.target.value)} /></label>

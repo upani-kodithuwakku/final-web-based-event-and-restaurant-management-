@@ -127,7 +127,7 @@ public class AdminReservationController {
     public ResponseEntity<ApiResponse<ReservationResponse>> cancelReservation(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetails principal,
-            @RequestBody(required = false) CancelReservationRequest request) {
+            @Valid @RequestBody(required = false) CancelReservationRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Reservation cancelled",
                 reservationService.cancelReservationAsStaff(id, principal.getUsername(),
                         request != null ? request : new CancelReservationRequest())));

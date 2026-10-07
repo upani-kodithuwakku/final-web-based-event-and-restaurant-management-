@@ -19,6 +19,7 @@ public class UpdateReservationRequest {
     @Max(200)
     private Integer guestCount;
 
+    @Size(max = 50)
     private String seatingPreference;
     @Size(max=500)
     private String specialRequest;

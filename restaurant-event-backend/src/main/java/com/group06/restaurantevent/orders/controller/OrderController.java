@@ -39,4 +39,14 @@ public class OrderController {
                                                   @AuthenticationPrincipal UserDetails principal) {
         return ResponseEntity.ok(orderService.getOrder(id, principal.getUsername()));
     }
+    @PutMapping("/{id}")
+    public ResponseEntity<OrderResponse> update(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal,
+                                               @Valid @RequestBody CreateOrderRequest request) {
+        return ResponseEntity.ok(orderService.updateOrder(id, principal.getUsername(), request));
+    }
+
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<OrderResponse> cancel(@PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        return ResponseEntity.ok(orderService.cancelOrder(id, principal.getUsername()));
+    }
 }

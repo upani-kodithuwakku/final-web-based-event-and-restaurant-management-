@@ -3,8 +3,11 @@ package com.group06.restaurantevent.orders.controller;
 import com.group06.restaurantevent.orders.dto.request.CreateFoodRequestRequest;
 import com.group06.restaurantevent.orders.dto.response.FoodRequestResponse;
 import com.group06.restaurantevent.orders.service.FoodRequestService;
+
 import jakarta.validation.Valid;
+
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,15 +26,17 @@ public class FoodRequestController {
 
     @PostMapping
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<FoodRequestResponse> create(@AuthenticationPrincipal UserDetails principal,
-                                                      @Valid @RequestBody CreateFoodRequestRequest req) {
+    public ResponseEntity<FoodRequestResponse> create(
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody CreateFoodRequestRequest req) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(foodRequestService.create(principal.getUsername(), req));
     }
 
     @GetMapping("/my")
     @PreAuthorize("hasRole('CUSTOMER')")
-    public ResponseEntity<List<FoodRequestResponse>> myRequests(@AuthenticationPrincipal UserDetails principal) {
+    public ResponseEntity<List<FoodRequestResponse>> myRequests(
+            @AuthenticationPrincipal UserDetails principal) {
         return ResponseEntity.ok(foodRequestService.myRequests(principal.getUsername()));
     }
 
@@ -43,8 +48,25 @@ public class FoodRequestController {
 
     @PatchMapping("/{id}/resolve")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER','WAITER','KITCHEN_STAFF')")
-    public ResponseEntity<FoodRequestResponse> resolve(@PathVariable Long id,
-                                                       @AuthenticationPrincipal UserDetails principal) {
+    public ResponseEntity<FoodRequestResponse> resolve(
+            @PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
         return ResponseEntity.ok(foodRequestService.resolve(id, principal.getUsername()));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<FoodRequestResponse> update(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetails principal,
+            @Valid @RequestBody CreateFoodRequestRequest req) {
+        return ResponseEntity.ok(foodRequestService.update(id, principal.getUsername(), req));
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ResponseEntity<Void> withdraw(
+            @PathVariable Long id, @AuthenticationPrincipal UserDetails principal) {
+        foodRequestService.withdraw(id, principal.getUsername());
+        return ResponseEntity.noContent().build();
     }
 }

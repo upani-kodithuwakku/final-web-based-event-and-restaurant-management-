@@ -29,6 +29,8 @@ const ALL_NAV: NavItem[] = [
   { label: 'Cashier',      to: '/admin/cashier',      icon: BanknotesIcon,               roles: ['ADMIN', 'MANAGER', 'CASHIER'] },
   { label: 'Inventory',    to: '/admin/inventory',    icon: ArchiveBoxIcon,              roles: ['ADMIN', 'MANAGER', 'INVENTORY_MANAGER'] },
   { label: 'Suppliers', to: '/admin/suppliers', icon: ArchiveBoxIcon, roles: ['ADMIN', 'MANAGER', 'WAITER', 'KITCHEN_STAFF', 'INVENTORY_MANAGER', 'CASHIER', 'EVENT_COORDINATOR'] },
+  { label: 'Purchase orders', to: '/admin/purchases', icon: ArchiveBoxIcon, roles: ['ADMIN', 'MANAGER', 'INVENTORY_MANAGER'] },
+  { label: 'Attendance', to: '/admin/attendance', icon: UserGroupIcon, roles: ['ADMIN', 'MANAGER'] },
   { label: 'Staff',        to: '/admin/staff',        icon: UserGroupIcon,               roles: ['ADMIN', 'MANAGER'] },
   { label: 'Users',        to: '/admin/users',        icon: UsersIcon,                   roles: ['ADMIN', 'MANAGER'] },
   { label: 'Reports',      to: '/admin/reports',      icon: ChartBarIcon,                roles: ['ADMIN', 'MANAGER'] },
