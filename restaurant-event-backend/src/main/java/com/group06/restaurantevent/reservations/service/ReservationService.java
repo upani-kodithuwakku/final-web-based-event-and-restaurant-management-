@@ -286,6 +286,7 @@ public class ReservationService {
         if (reservation.getStatus() != ReservationStatus.CONFIRMED) {
             throw new BadRequestException("Only CONFIRMED reservations can be checked in");
         }
+        requireReservationStarted(reservation);
         reservation.setStatus(ReservationStatus.CHECKED_IN);
         RestaurantTable table = reservation.getTable();
         table.setCurrentStatus(TableStatus.OCCUPIED);
@@ -314,6 +315,7 @@ public class ReservationService {
         if (reservation.getStatus() != ReservationStatus.CONFIRMED) {
             throw new BadRequestException("Only CONFIRMED reservations can be marked no-show");
         }
+        requireReservationStarted(reservation);
         reservation.setStatus(ReservationStatus.NO_SHOW);
         RestaurantTable table = reservation.getTable();
         if (table.getCurrentStatus() == TableStatus.RESERVED) {
@@ -342,6 +344,12 @@ public class ReservationService {
         reservationSubject.notifyObservers(new ReservationEvent(reservation.getId(),
                 reservation.getBookingReference(), reservation.getCustomer(), actorId, action,
                 previous, reservation.getStatus()));
+    }
+
+    private void requireReservationStarted(TableReservation reservation) {
+        if (reservation.getReservationDate().atTime(reservation.getStartTime()).isAfter(
+                LocalDateTime.now(java.time.ZoneId.of("Asia/Colombo"))))
+            throw new BadRequestException("Wait until the reservation start time before checking in or marking no-show");
     }
 
     private void validateSlot(LocalDate date, LocalTime time, int guests) {

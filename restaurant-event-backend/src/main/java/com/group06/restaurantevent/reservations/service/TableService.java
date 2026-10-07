@@ -72,6 +72,16 @@ public class TableService {
     @Transactional
     public TableResponse updateTableStatus(Long id, UpdateTableStatusRequest request) {
         RestaurantTable table = findActiveById(id);
+        var upcoming = reservations.findAll().stream().filter(r -> r.getTable().getId().equals(id)
+                && !r.getReservationDate().isBefore(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Colombo")))
+                && java.util.List.of(com.group06.restaurantevent.common.enums.ReservationStatus.PENDING,
+                    com.group06.restaurantevent.common.enums.ReservationStatus.CONFIRMED,
+                    com.group06.restaurantevent.common.enums.ReservationStatus.CHECKED_IN).contains(r.getStatus())).toList();
+        if (request.getStatus() == TableStatus.OUT_OF_SERVICE && !upcoming.isEmpty())
+            throw new ConflictException("Cancel or reassign upcoming reservations before taking this table out of service");
+        if (upcoming.stream().anyMatch(r -> r.getStatus() == com.group06.restaurantevent.common.enums.ReservationStatus.CHECKED_IN)
+                && request.getStatus() != TableStatus.OCCUPIED)
+            throw new ConflictException("Complete the checked-in reservation before changing this table's status");
         table.setCurrentStatus(request.getStatus());
         return toResponse(tableRepository.save(table));
     }
