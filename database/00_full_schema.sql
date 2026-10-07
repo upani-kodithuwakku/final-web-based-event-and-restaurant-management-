@@ -1,5 +1,5 @@
 -- Complete fresh-install schema for MySQL 8.0: 31 tables.
--- Includes current backend tables and five explicitly marked planned tables.
+-- Includes current backend tables and two explicitly marked planned tables.
 -- Run this entire file using the MySQL extension in VS Code, Workbench, or:
 -- mysql -u root -p < database/00_full_schema.sql
 -- Creates restaurant_event_db; does not drop tables or overwrite records.
@@ -297,7 +297,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
   is_active      TINYINT(1)   NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Planned schema table; backend workflow is not implemented yet.
+-- Implemented backend workflow.
 CREATE TABLE IF NOT EXISTS purchase_orders (
   id          BIGINT      AUTO_INCREMENT PRIMARY KEY,
   po_number   VARCHAR(30) NOT NULL UNIQUE,
@@ -309,7 +309,7 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   CONSTRAINT fk_po_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Planned schema table; backend workflow is not implemented yet.
+-- Implemented backend workflow.
 CREATE TABLE IF NOT EXISTS purchase_order_items (
   id                 BIGINT        AUTO_INCREMENT PRIMARY KEY,
   purchase_order_id  BIGINT        NOT NULL,
@@ -375,13 +375,13 @@ CREATE TABLE IF NOT EXISTS shift_assignments (
   CONSTRAINT fk_sa_staff FOREIGN KEY (staff_id) REFERENCES staff_profiles(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Planned schema table; backend workflow is not implemented yet.
+-- Implemented backend workflow.
 CREATE TABLE IF NOT EXISTS attendance_records (
   id                  BIGINT      AUTO_INCREMENT PRIMARY KEY,
   shift_assignment_id BIGINT      NOT NULL UNIQUE,
   check_in_at         DATETIME(6),
   check_out_at        DATETIME(6),
-  attendance_status   VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  attendance_status   VARCHAR(20) NOT NULL DEFAULT 'ABSENT',
   CONSTRAINT fk_ar_assignment FOREIGN KEY (shift_assignment_id) REFERENCES shift_assignments(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
