@@ -66,6 +66,7 @@ public class CustomerPaymentService {
     private final Map<PaymentOption, PaymentMethodStrategy> strategies;
     private final TableReservationRepository reservationRepository;
     private final BigDecimal depositPerGuest;
+    private final com.group06.restaurantevent.billing.repository.InvoiceRepository invoices;
 
     public CustomerPaymentService(CustomerPaymentRepository paymentRepository,
                                   FoodOrderRepository orderRepository,
@@ -74,8 +75,10 @@ public class CustomerPaymentService {
                                   AuditLogRepository auditLogRepository,
                                   List<PaymentMethodStrategy> strategyList,
                                   TableReservationRepository reservationRepository,
-                                  @Value("${app.reservation.deposit-per-guest:500}") BigDecimal depositPerGuest) {
+                                  @Value("${app.reservation.deposit-per-guest:500}") BigDecimal depositPerGuest,
+                                  com.group06.restaurantevent.billing.repository.InvoiceRepository invoices) {
         this.paymentRepository = paymentRepository;
+        this.invoices = invoices;
         this.orderRepository = orderRepository;
         this.bookingRepository = bookingRepository;
         this.userRepository = userRepository;
@@ -97,6 +100,10 @@ public class CustomerPaymentService {
         boolean forOrder = req.getFoodOrderId() != null;
         int targets = (forOrder ? 1 : 0) + (req.getEventBookingId() != null ? 1 : 0) + (req.getTableReservationId() != null ? 1 : 0);
         if (targets != 1) throw new BadRequestException("Choose exactly one food order, event booking or table reservation");
+        var invoice = forOrder ? invoices.findByFoodOrderId(req.getFoodOrderId())
+                : req.getEventBookingId() != null ? invoices.findByEventBookingId(req.getEventBookingId()) : java.util.Optional.<com.group06.restaurantevent.billing.entity.Invoice>empty();
+        if (invoice.filter(i -> i.getStatus() != com.group06.restaurantevent.common.enums.InvoiceStatus.CANCELLED).isPresent())
+            throw new ConflictException("This booking is billed by the cashier; use its invoice instead of paying twice");
 
         CustomerPayment payment = CustomerPayment.builder()
                 .paymentReference(generateReference())

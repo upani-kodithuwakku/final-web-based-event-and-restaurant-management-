@@ -35,10 +35,37 @@ public class BillingService {
 
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final com.group06.restaurantevent.users.repository.UserRepository users;
+    private final com.group06.restaurantevent.orders.repository.FoodOrderRepository orders;
+    private final com.group06.restaurantevent.events.repository.EventBookingRepository events;
+    private final com.group06.restaurantevent.payment.repository.CustomerPaymentRepository customerPayments;
 
     @Transactional
     public InvoiceResponse createInvoice(CreateInvoiceRequest req) {
         InvoiceType type = parseType(req.getInvoiceType());
+        var customer = users.findById(req.getCustomerId()).orElseThrow(() -> new ResourceNotFoundException("Customer not found"));
+        if (customer.getRoles().stream().noneMatch(r -> r.getName().equals("CUSTOMER"))) throw new BadRequestException("Choose a customer account");
+        if (!customer.isActive()) throw new BadRequestException("Choose an active customer");
+        if ((type == InvoiceType.FOOD_ORDER && (req.getFoodOrderId() == null || req.getEventBookingId() != null))
+                || (type == InvoiceType.EVENT_BOOKING && (req.getEventBookingId() == null || req.getFoodOrderId() != null)))
+            throw new BadRequestException("Choose exactly one record matching the invoice type");
+        BigDecimal amount;
+        String description;
+        if (type == InvoiceType.FOOD_ORDER) {
+            var order = orders.findById(req.getFoodOrderId()).orElseThrow(() -> new ResourceNotFoundException("Order not found"));
+            if (!order.getCustomerId().equals(req.getCustomerId())) throw new BadRequestException("Order does not belong to this customer");
+            if (order.getStatus() == com.group06.restaurantevent.common.enums.OrderStatus.CANCELLED) throw new BadRequestException("Cannot invoice a cancelled order");
+            if (invoiceRepository.findByFoodOrderId(order.getId()).isPresent()) throw new com.group06.restaurantevent.common.exception.ConflictException("Order already has an invoice");
+            amount = order.getSubtotal(); description = "Food order " + order.getOrderReference();
+        } else {
+            var booking = events.findById(req.getEventBookingId()).orElseThrow(() -> new ResourceNotFoundException("Event booking not found"));
+            if (!booking.getCustomerId().equals(req.getCustomerId())) throw new BadRequestException("Booking does not belong to this customer");
+            if (booking.getStatus() != com.group06.restaurantevent.common.enums.EventBookingStatus.CONFIRMED) throw new BadRequestException("Only confirmed events can be invoiced");
+            if (invoiceRepository.findByEventBookingId(booking.getId()).isPresent()) throw new com.group06.restaurantevent.common.exception.ConflictException("Event already has an invoice");
+            amount = booking.getDepositAmount().divide(new BigDecimal("0.30"), 2, RoundingMode.HALF_UP);
+            description = "Event booking " + booking.getBookingReference();
+        }
+        if (amount == null || amount.signum() <= 0) throw new BadRequestException("Invoice amount must be greater than zero");
 
         Invoice invoice = Invoice.builder()
                 .invoiceNumber(generateInvoiceNumber())
@@ -56,13 +83,16 @@ public class BillingService {
                 .build();
 
         invoiceRepository.save(invoice);
-        return toResponse(invoice);
+        return addItemAndRecalculate(invoice.getId(), description, 1, amount);
     }
 
     @Transactional
     public InvoiceResponse addItemAndRecalculate(Long invoiceId, String description,
                                                   int qty, BigDecimal unitPrice) {
         Invoice invoice = findInvoice(invoiceId);
+        if (invoice.getStatus() == InvoiceStatus.PAID || invoice.getStatus() == InvoiceStatus.CANCELLED)
+            throw new BadRequestException("Cannot edit a paid or void invoice");
+        if (qty < 1 || unitPrice == null || unitPrice.signum() <= 0) throw new BadRequestException("Quantity and price must be positive");
         BigDecimal lineTotal = unitPrice.multiply(BigDecimal.valueOf(qty));
 
         InvoiceItem item = InvoiceItem.builder()
@@ -103,8 +133,11 @@ public class BillingService {
     @Transactional
     public PaymentResponse processPayment(CreatePaymentRequest req) {
         Invoice invoice = findInvoice(req.getInvoiceId());
-        if (invoice.getStatus() == InvoiceStatus.PAID)
-            throw new BadRequestException("Invoice is already paid");
+        if (invoice.getStatus() != InvoiceStatus.ISSUED || invoice.getTotalAmount().signum() <= 0)
+            throw new BadRequestException("Only a positive issued invoice can be paid");
+        var existing = invoice.getFoodOrderId() != null ? customerPayments.findByFoodOrderId(invoice.getFoodOrderId()) : customerPayments.findByEventBookingId(invoice.getEventBookingId());
+        if (existing.filter(p -> p.getStatus() == PaymentStatus.PAID || p.getStatus() == PaymentStatus.PENDING).isPresent())
+            throw new com.group06.restaurantevent.common.exception.ConflictException("This booking already has a customer payment; collect that payment instead");
 
         PaymentMethod method = parseMethod(req.getMethod());
 
@@ -126,6 +159,34 @@ public class BillingService {
     public List<PaymentResponse> getPaymentsForInvoice(Long invoiceId) {
         return paymentRepository.findByInvoiceIdOrderByCreatedAtDesc(invoiceId)
                 .stream().map(this::toPaymentResponse).toList();
+    }
+
+    public InvoiceResponse getInvoiceForUser(Long id, String email, boolean staff) {
+        Invoice invoice = findInvoice(id);
+        requireOwner(invoice, email, staff);
+        return toResponse(invoice);
+    }
+
+    public List<PaymentResponse> getPaymentsForUser(Long id, String email, boolean staff) {
+        requireOwner(findInvoice(id), email, staff);
+        return getPaymentsForInvoice(id);
+    }
+
+    public List<InvoiceResponse> myInvoicesForEmail(String email) {
+        return myInvoices(users.findByEmailAndIsActiveTrue(email).orElseThrow(() -> new ResourceNotFoundException("Customer not found")).getId());
+    }
+
+    @Transactional
+    public InvoiceResponse voidInvoice(Long id) {
+        Invoice invoice = findInvoice(id);
+        if (invoice.getStatus() == InvoiceStatus.PAID) throw new BadRequestException("Paid invoices cannot be voided");
+        invoice.setStatus(InvoiceStatus.CANCELLED);
+        return toResponse(invoiceRepository.save(invoice));
+    }
+
+    private void requireOwner(Invoice invoice, String email, boolean staff) {
+        if (!staff && !users.findByEmailAndIsActiveTrue(email).map(u -> u.getId().equals(invoice.getCustomerId())).orElse(false))
+            throw new com.group06.restaurantevent.common.exception.ForbiddenException("Access denied");
     }
 
     private Invoice findInvoice(Long id) {
