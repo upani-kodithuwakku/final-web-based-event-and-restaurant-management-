@@ -451,6 +451,10 @@ class CustomerPaymentTests {
     @Test void reservationObserversWriteNotificationsAndHistoryOnlyForSuccessfulChanges() throws Exception {
         var r = reservation(1, "CONFIRMED", 2);
         mvc.perform(patch("/api/admin/reservations/"+r.getId()+"/check-in").with(as(9,"ADMIN")))
+            .andExpect(status().isBadRequest());
+        r.setReservationDate(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Colombo")).minusDays(1));
+        reservations.saveAndFlush(r);
+        mvc.perform(patch("/api/admin/reservations/"+r.getId()+"/check-in").with(as(9,"ADMIN")))
             .andExpect(status().isOk());
         var history = auditLogs.findByEntityNameAndEntityIdOrderByCreatedAtDescIdDesc("TableReservation",r.getId());
         assertThat(history).hasSize(1);
