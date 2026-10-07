@@ -12,3 +12,6 @@
 target.nosync/
 node_modules.nosync/
 node_modules.cloud-backup/
+
+# Local R console history
+.Rhistory
