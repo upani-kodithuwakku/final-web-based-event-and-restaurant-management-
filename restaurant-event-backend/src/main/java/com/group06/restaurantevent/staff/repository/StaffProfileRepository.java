@@ -10,4 +10,7 @@ public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long
     List<StaffProfile> findByIsActiveTrueOrderByEmployeeCodeAsc();
     Optional<StaffProfile> findByUserId(Long userId);
     boolean existsByEmployeeCode(String code);
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @org.springframework.data.jpa.repository.Query("select s from StaffProfile s where s.id=:id")
+    Optional<StaffProfile> findLockedById(@org.springframework.data.repository.query.Param("id") Long id);
 }

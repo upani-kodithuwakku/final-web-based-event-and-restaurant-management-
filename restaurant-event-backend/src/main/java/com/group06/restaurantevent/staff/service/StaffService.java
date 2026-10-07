@@ -45,6 +45,7 @@ public class StaffService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final com.group06.restaurantevent.staff.repository.AttendanceRepository attendance;
 
     // ---- Staff user creation (P2) ----
 
@@ -52,13 +53,13 @@ public class StaffService {
     public StaffProfileResponse createStaffUser(CreateStaffUserRequest req) {
         req.setEmail(req.getEmail().trim().toLowerCase(java.util.Locale.ROOT));
         req.setFullName(req.getFullName().trim());
-        if(req.getRoles().contains("CUSTOMER")) throw new BadRequestException("Staff accounts must use staff roles");
+        Set<String> selectedRoles = normalizeStaffRoles(req.getRoles());
         if (userRepository.existsByEmail(req.getEmail())) {
             throw new ConflictException("Email already registered: " + req.getEmail());
         }
 
         Set<Role> roles = new HashSet<>();
-        for (String roleName : req.getRoles()) {
+        for (String roleName : selectedRoles) {
             Role role = roleRepository.findByName(roleName.toUpperCase())
                     .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + roleName));
             roles.add(role);
@@ -87,25 +88,19 @@ public class StaffService {
 
     // ---- Staff listing — all non-CUSTOMER users from DB ----
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<StaffProfileResponse> listStaff() {
         return userRepository.findAllExcludingRole("CUSTOMER")
                 .stream().map(u -> {
-                    StaffProfile p = profileRepository.findByUserId(u.getId()).orElse(null);
+                    StaffProfile p = ensureProfile(u);
                     return toUserResponse(u, p);
                 }).toList();
     }
 
     @Transactional(readOnly = true)
     public StaffProfileResponse getStaff(Long id) {
-        StaffProfile p = profileRepository.findById(id).orElse(null);
-        if (p != null) {
-            User u = userRepository.findById(p.getUserId()).orElse(null);
-            return toProfileResponse(p, u);
-        }
-        User u = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Staff not found: " + id));
-        return toUserResponse(u, null);
+        StaffProfile p = findProfile(id);
+        return toProfileResponse(p, userRepository.findById(p.getUserId()).orElse(null));
     }
 
     // ---- Profile update ----
@@ -123,6 +118,8 @@ public class StaffService {
     @Transactional
     public void toggleActive(Long id, boolean active) {
         StaffProfile p = findProfile(id);
+        if (active && p.getEmploymentStatus() == EmploymentStatus.TERMINATED)
+            throw new BadRequestException("Update the employment status before reactivating terminated staff");
         p.setActive(active);
         userRepository.findById(p.getUserId()).ifPresent(u -> {
             u.setActive(active);
@@ -138,8 +135,7 @@ public class StaffService {
         StaffProfile p = findProfile(id);
         User u = userRepository.findById(p.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found for staff profile"));
-        if(roleNames == null || roleNames.isEmpty() || roleNames.contains("CUSTOMER")) throw new BadRequestException("Select at least one staff role");
-        Set<Role> roles = roleNames.stream()
+        Set<Role> roles = normalizeStaffRoles(roleNames).stream()
                 .map(n -> roleRepository.findByName(n.toUpperCase())
                         .orElseThrow(() -> new ResourceNotFoundException("Role not found: " + n)))
                 .collect(Collectors.toSet());
@@ -155,8 +151,8 @@ public class StaffService {
         StaffProfile p = findProfile(id);
         User u = userRepository.findById(p.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found for staff profile"));
-        if (newPassword == null || newPassword.length() < 8)
-            throw new BadRequestException("Password must be at least 8 characters");
+        if (newPassword == null || newPassword.isBlank() || newPassword.length() < 8 || newPassword.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 72)
+            throw new BadRequestException("Password must be between 8 and 72 characters");
         u.setPasswordHash(passwordEncoder.encode(newPassword));
         userRepository.save(u);
     }
@@ -189,6 +185,8 @@ public class StaffService {
         Shift shift = findShift(id);
         if (shift.getStatus() != ShiftStatus.SCHEDULED)
             throw new BadRequestException("Only SCHEDULED shifts can be deleted");
+        if (assignmentRepository.findByShift_Id(id).stream().anyMatch(a -> attendance.existsByAssignment_Id(a.getId())))
+            throw new ConflictException("Shifts with attendance cannot be cancelled");
         shift.setStatus(ShiftStatus.CANCELLED);
         shiftRepository.save(shift);
     }
@@ -202,7 +200,7 @@ public class StaffService {
     public ShiftAssignmentResponse assignStaff(Long shiftId, Long staffId) {
         Shift shift = findShift(shiftId);
         if (staffId == null) throw new BadRequestException("Select a staff member");
-        StaffProfile profile = findProfile(staffId);
+        StaffProfile profile = profileRepository.findLockedById(staffId).orElseThrow(() -> new ResourceNotFoundException("Staff profile not found"));
         if (!profile.isActive() || profile.getEmploymentStatus() == EmploymentStatus.TERMINATED) throw new BadRequestException("Inactive or terminated staff cannot be assigned");
         if (shift.getStatus() != ShiftStatus.SCHEDULED) throw new BadRequestException("Only scheduled shifts accept assignments");
         User user = userRepository.findById(profile.getUserId()).orElseThrow(() -> new ResourceNotFoundException("Staff user not found"));
@@ -215,6 +213,8 @@ public class StaffService {
         if (assignmentRepository.findByShift_IdAndStaffId(shiftId, staffId).isPresent())
             throw new ConflictException("Staff already assigned to this shift");
 
+        if (assignmentRepository.findByShift_Id(shiftId).size() >= shift.getRequiredStaffCount())
+            throw new ConflictException("This shift already has the required number of staff");
         ShiftAssignment assignment = ShiftAssignment.builder()
                 .shift(shift)
                 .staffId(staffId)
@@ -228,6 +228,7 @@ public class StaffService {
     public void unassignStaff(Long shiftId, Long staffId) {
         ShiftAssignment assignment = assignmentRepository.findByShift_IdAndStaffId(shiftId, staffId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assignment not found"));
+        if (attendance.existsByAssignment_Id(assignment.getId())) throw new ConflictException("Keep assignments with recorded attendance for history");
         assignmentRepository.delete(assignment);
     }
 
@@ -240,6 +241,8 @@ public class StaffService {
             if(!shift.getRoleRequired().equals(req.getRoleRequired())) throw new ConflictException("Unassign staff before changing the required role");
             if(assignmentRepository.findOverlapping(a.getStaffId(), req.getShiftDate(), req.getStartTime(), req.getEndTime()).stream().anyMatch(x -> !x.getShift().getId().equals(id))) throw new ConflictException("Updated shift overlaps another assignment");
         }
+        if (assignmentRepository.findByShift_Id(id).size() > req.getRequiredStaffCount())
+            throw new ConflictException("Unassign staff before reducing the required staff count");
         shift.setShiftDate(req.getShiftDate());shift.setStartTime(req.getStartTime());shift.setEndTime(req.getEndTime());shift.setRoleRequired(req.getRoleRequired());shift.setRequiredStaffCount(req.getRequiredStaffCount());
         return toShiftResponse(shiftRepository.save(shift));
     }
@@ -248,6 +251,7 @@ public class StaffService {
         StaffProfile p=findProfile(id);
         if(assignmentRepository.findByStaffIdOrderByCreatedAtDesc(id).stream().anyMatch(a -> a.getShift().getStatus()==ShiftStatus.SCHEDULED && !a.getShift().getShiftDate().isBefore(LocalDate.now()))) throw new ConflictException("Unassign upcoming shifts before removing staff");
         p.setEmploymentStatus(EmploymentStatus.TERMINATED);p.setActive(false);profileRepository.save(p);
+        userRepository.findById(p.getUserId()).ifPresent(u -> {u.setActive(false); userRepository.save(u);});
     }
     private void validateShift(CreateShiftRequest req) {
         if(!req.getEndTime().isAfter(req.getStartTime())) throw new BadRequestException("Shift end time must be after start time");
@@ -257,13 +261,33 @@ public class StaffService {
 
     // ---- Helpers ----
 
+    private Set<String> normalizeStaffRoles(Set<String> values) {
+        if (values == null || values.isEmpty()) throw new BadRequestException("Select at least one staff role");
+        Set<String> normalized = new HashSet<>();
+        for (String value : values) {
+            if (value == null || value.isBlank()) throw new BadRequestException("Staff role cannot be blank");
+            String role = value.trim().toUpperCase(java.util.Locale.ROOT);
+            if (role.equals("CUSTOMER")) throw new BadRequestException("Staff accounts must use staff roles");
+            normalized.add(role);
+        }
+        return normalized;
+    }
+
+    private StaffProfile ensureProfile(User user) {
+        return profileRepository.findByUserId(user.getId()).orElseGet(() -> profileRepository.save(
+                StaffProfile.builder().userId(user.getId()).employeeCode(generateEmpCode())
+                .jobTitle("Staff").employmentStatus(EmploymentStatus.FULL_TIME)
+                .joinedDate(java.time.LocalDate.now(java.time.ZoneId.of("Asia/Colombo")))
+                .isActive(user.isActive()).build()));
+    }
+
     private StaffProfile findProfile(Long id) {
         return profileRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff profile not found: " + id));
     }
 
     private Shift findShift(Long id) {
-        return shiftRepository.findById(id)
+        return shiftRepository.findLockedById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Shift not found: " + id));
     }
 
@@ -309,7 +333,7 @@ public class StaffService {
                 .jobTitle(p != null ? p.getJobTitle() : null)
                 .employmentStatus(p != null ? p.getEmploymentStatus().name() : "FULL_TIME")
                 .joinedDate(p != null ? p.getJoinedDate() : null)
-                .isActive(u.isActive())
+                .isActive(u.isActive() && (p == null || p.isActive()))
                 .roles(roles)
                 .build();
     }
