@@ -38,7 +38,7 @@ export default function Profile() {
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault(); setPwErr(''); setPwMsg('');
-    if (pw.next.length < 8) return setPwErr('New password must be at least 8 characters.');
+    if (pw.next.length < 8 || pw.next.length > 72) return setPwErr('New password must be between 8 and 72 characters.');
     if (pw.next !== pw.confirm) return setPwErr('The new passwords do not match.');
     setPwBusy(true);
     try {
@@ -71,7 +71,7 @@ export default function Profile() {
             <h3>Change password</h3>
             <label>Current password<input type="password" autoComplete="current-password" required value={pw.current}
               onChange={e => setPw({ ...pw, current: e.target.value })} /></label>
-            <label>New password<input type="password" autoComplete="new-password" required minLength={8} placeholder="At least 8 characters"
+            <label>New password<input type="password" autoComplete="new-password" required minLength={8} maxLength={72} placeholder="At least 8 characters"
               value={pw.next} onChange={e => setPw({ ...pw, next: e.target.value })} /></label>
             <label>Confirm new password<input type="password" autoComplete="new-password" required value={pw.confirm}
               onChange={e => setPw({ ...pw, confirm: e.target.value })} /></label>

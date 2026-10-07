@@ -49,7 +49,7 @@ export default function Auth({ register = false }: { register?: boolean }) {
         }}>
           {register && <label>Full name<input required name="fullName" autoComplete="name" placeholder="Your full name" /></label>}
           <label>Email address<input required name="email" autoComplete="email" type="email" placeholder="you@example.com" /></label>
-          <label>Password<input required name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'} minLength={register ? 8 : 1} placeholder={register ? 'At least 8 characters' : 'Your password'} /></label>
+          <label>Password<input required name="password" type="password" autoComplete={register ? 'new-password' : 'current-password'} minLength={register ? 8 : 1} maxLength={register ? 72 : undefined} placeholder={register ? 'At least 8 characters' : 'Your password'} /></label>
           {register && <label>Phone number<input name="phone" type="tel" pattern="[0-9]{10}|^$" inputMode="numeric" autoComplete="tel" placeholder="0771234567" /></label>}
           {!register && <Link className="text-button forgot-link" to="/forgot-password">Forgot password?</Link>}
           {error && <p className="error" role="alert">{error}</p>}

@@ -19,11 +19,7 @@ import java.time.LocalDateTime;
 import java.util.HexFormat;
 import java.util.Optional;
 
-/**
- * Forgot-password flow. There is no email server in this project, so the reset link is
- * written to the backend log (a simulated email) and, for local demos only, can be returned
- * in the API response by setting app.auth.expose-reset-link=true.
- */
+/** Password resets use optional SMTP; local demos may explicitly expose the link. */
 @Service
 @Slf4j
 public class PasswordResetService {
@@ -37,6 +33,7 @@ public class PasswordResetService {
     private final int validMinutes;
     private final boolean exposeLink;
     private final String frontendUrl;
+    private final PasswordResetMailService mailService;
     private final SecureRandom random = new SecureRandom();
 
     public PasswordResetService(PasswordResetTokenRepository tokenRepository,
@@ -44,13 +41,15 @@ public class PasswordResetService {
                                 PasswordEncoder passwordEncoder,
                                 @Value("${app.auth.reset-token-minutes:30}") int validMinutes,
                                 @Value("${app.auth.expose-reset-link:false}") boolean exposeLink,
-                                @Value("${app.frontend-url:http://localhost:5173}") String frontendUrl) {
+                                @Value("${app.frontend-url:http://localhost:5174}") String frontendUrl,
+                                PasswordResetMailService mailService) {
         this.tokenRepository = tokenRepository;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.validMinutes = validMinutes;
         this.exposeLink = exposeLink;
         this.frontendUrl = frontendUrl;
+        this.mailService = mailService;
     }
 
     @Transactional
@@ -73,7 +72,10 @@ public class PasswordResetService {
                 .build());
 
         String link = frontendUrl + "/reset-password?token=" + token.getToken();
-        log.info("[Password reset email simulated] to {}: {} (valid {} minutes)", user.getEmail(), link, validMinutes);
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+            new org.springframework.transaction.support.TransactionSynchronization() {
+                @Override public void afterCommit() { mailService.deliver(user.getEmail(), link, validMinutes); }
+            });
 
         return ForgotPasswordResponse.builder()
                 .message(GENERIC_MESSAGE)

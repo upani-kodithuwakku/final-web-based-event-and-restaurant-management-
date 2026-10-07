@@ -15,6 +15,7 @@ public class RegisterRequest {
 
     @NotBlank @Size(min = 8, message = "Password must be at least 8 characters")
     @Size(max=72)
+    @com.group06.restaurantevent.common.validation.PasswordBytes
     private String password;
 
     @Pattern(regexp="^$|[0-9]{10}", message="Phone number must contain exactly 10 digits")
