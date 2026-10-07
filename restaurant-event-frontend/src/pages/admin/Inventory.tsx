@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
 import { PlusIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline';
 import { Modal, SectionHeading } from '../../components/UI';
-import { inventoryApi, type InventoryItemDto, errorMessage } from '../../services/api';
+import { stockHistoryApi, type StockMovementDto, inventoryApi, type InventoryItemDto, errorMessage } from '../../services/api';
 
 export default function AdminInventory() {
   const [items, setItems] = useState<InventoryItemDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState<InventoryItemDto | 'new' | null>(null);
   const [form, setForm] = useState({ name: '', unit: 'kg', currentQuantity: 0, reorderLevel: 5 });
+  const [historyItem,setHistoryItem] = useState<InventoryItemDto|null>(null);
+  const [history,setHistory] = useState<StockMovementDto[]>([]);
+  const [historyLoading,setHistoryLoading] = useState(false);
   const [adjModal, setAdjModal] = useState<InventoryItemDto | null>(null);
   const [adjDelta, setAdjDelta] = useState('');
   const [adjNote, setAdjNote] = useState('');
@@ -119,12 +122,14 @@ export default function AdminInventory() {
                   Adjust stock
                 </button>
                 <button className="button" disabled={busy} onClick={() => void remove(item)}>Delete</button>
+                <button className="button" onClick={async()=>{setHistoryItem(item);setHistory([]);setHistoryLoading(true);setErr('');try{setHistory(await stockHistoryApi.list(item.id));}catch(e){setErr(errorMessage(e));}finally{setHistoryLoading(false);}}}>History</button>
               </div>
             </div>
           ))}
         </div>
       )}
 
+      {historyItem && <Modal title={`Stock history: ${historyItem.name}`} onClose={()=>setHistoryItem(null)}>{err&&<p role="alert" className="error">{err}</p>}{historyLoading?<p>Loading…</p>:history.length?<table><thead><tr><th>When</th><th>Type</th><th>Change</th><th>Notes</th></tr></thead><tbody>{history.map(m=><tr key={m.id}><td>{m.createdAt.replace('T',' ')}</td><td>{m.movementType}{m.referenceId?` · Order #${m.referenceId}`:''}</td><td>{Number(m.quantityChange).toFixed(3)}</td><td>{m.note}</td></tr>)}</tbody></table>:<p>No movements recorded yet.</p>}</Modal>}
       {modal !== null && (
         <Modal title={modal === 'new' ? 'Add inventory item' : `Edit ${(modal as InventoryItemDto).name}`} onClose={() => setModal(null)}>
           <div className="input-group">
