@@ -1,3 +1,4 @@
+import EditOrder from '../components/EditOrder';
 import MenuPhoto from '../components/MenuPhoto';
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
@@ -35,7 +36,9 @@ function MenuContent() {
   const submitting = useRef(false);
   const [actionError, setActionError] = useState('');
   const [success, setSuccess] = useState('');
+  const [editingOrder, setEditingOrder] = useState<OrderDto | null>(null);
   const [orders, setOrders] = useState<OrderDto[]>([]);
+  const [editingRequest, setEditingRequest] = useState<FoodRequestDto | null>(null);
   const [requests, setRequests] = useState<FoodRequestDto[]>([]);
   const [historyError, setHistoryError] = useState('');
   // Checkout: the bag asks how to pay, then card payments open the gateway.
@@ -112,9 +115,10 @@ function MenuContent() {
     if (!canOrder || submitting.current || !message.trim()) return;
     submitting.current = true; setBusy(true); setActionError('');
     try {
-      const request = await foodRequestApi.create({ menuItemId: requestItem ? Number(requestItem) : undefined, message: message.trim() });
-      setRequests(all => [request, ...all]); setMessage(''); setRequestItem(''); setRequestOpen(false);
-      setSuccess('Your food request was sent to our staff.');
+      const body = { menuItemId: requestItem ? Number(requestItem) : undefined, message: message.trim() };
+      const request = editingRequest ? await foodRequestApi.update(editingRequest.id, body) : await foodRequestApi.create(body);
+      setRequests(all => editingRequest ? all.map(r => r.id === request.id ? request : r) : [request, ...all]); setMessage(''); setRequestItem(''); setRequestOpen(false);
+      setSuccess(editingRequest ? 'Your request was updated.' : 'Your food request was sent to our staff.'); setEditingRequest(null);
     } catch (e) { setActionError(errorMessage(e)); }
     finally { submitting.current = false; setBusy(false); }
   };
@@ -137,7 +141,7 @@ function MenuContent() {
         </label>
         {canOrder && <div className="menu-actions">
           {undo && <button className="text-button" disabled={busy} onClick={() => { setCart(undo); setUndo(null); }}>Undo bag change</button>}
-          <button className="button" onClick={() => { setRequestOpen(true); setActionError(''); }}>Request food / ask staff</button>
+          <button className="button" onClick={() => { setEditingRequest(null); setMessage(''); setRequestItem(''); setRequestOpen(true); setActionError(''); }}>Request food / ask staff</button>
         </div>}
       </div>
       </div>
@@ -208,6 +212,7 @@ function MenuContent() {
           setSuccess(`Paid ${money(payment.amount)} for order ${placedOrder.current?.orderReference ?? ''}. It's on its way to the kitchen.`);
           placedOrder.current = null; setGatewayAmount(null);
         }} />}
+      {editingOrder && <EditOrder order={editingOrder} onClose={() => setEditingOrder(null)} onSave={updated => {setOrders(all=>all.map(o=>o.id===updated.id?updated:o));setEditingOrder(null);}} />}
       {requestOpen && canOrder && <Modal title="Request food or ask our staff" onClose={() => { if (!busy) setRequestOpen(false); }}>
         <form onSubmit={e => { e.preventDefault(); void sendRequest(); }}>
           <p className="muted">Ask about a dish, dietary needs, or food you cannot find. This sends a request, not an order.</p>
@@ -223,8 +228,8 @@ function MenuContent() {
         <div className="row-between"><h2>Your orders and requests</h2><button className="text-button" onClick={loadHistory}>Refresh</button></div>
         {historyError && <p className="error" role="alert">{historyError}</p>}
         {!orders.length && !requests.length && <p className="muted">Your orders and food requests will appear here.</p>}
-        {orders.map(o => <div className="cart-row" key={`order-${o.id}`}><div><b>{o.orderReference}</b><p>{o.items.map(i => `${i.quantity} × ${i.itemNameSnapshot}`).join(', ')}</p></div><span>{o.status}</span><b>{money(o.subtotal)}</b>{o.status !== 'CANCELLED' && <Link className="card-signin" to={`/payments?order=${o.id}`}>View bill</Link>}</div>)}
-        {requests.map(r => <div className="cart-row" key={`request-${r.id}`}><div><b>{r.itemName || 'Food request'}</b><p>{r.message}</p></div><span>{r.status === 'RESOLVED' ? 'Resolved by staff' : 'Waiting for staff'}</span></div>)}
+        {orders.map(o => <div className="cart-row" key={`order-${o.id}`}><div><b>{o.orderReference}</b><p>{o.items.map(i => `${i.quantity} × ${i.itemNameSnapshot}`).join(', ')}</p></div><span>{o.status}</span>{o.status === 'PENDING' && <><button className="text-button" disabled={busy} onClick={() => setEditingOrder(o)}>Edit order</button><button className="text-button" disabled={busy} onClick={async () => {if(!window.confirm('Cancel this pending order?'))return;setBusy(true);try {const updated=await orderApi.cancel(o.id);setOrders(all=>all.map(x=>x.id===o.id?updated:x));setHistoryError('');}catch(e){setHistoryError(errorMessage(e));}finally{setBusy(false);}}}>Cancel order</button></>}<b>{money(o.subtotal)}</b>{o.status !== 'CANCELLED' && <Link className="card-signin" to={`/payments?order=${o.id}`}>View bill</Link>}</div>)}
+        {requests.map(r => <div className="cart-row" key={`request-${r.id}`}><div><b>{r.itemName || 'Food request'}</b><p>{r.message}</p></div><span>{r.status === 'RESOLVED' ? 'Resolved by staff' : r.status === 'CANCELLED' ? 'Withdrawn' : 'Waiting for staff'}</span>{r.status === 'OPEN' && <><button className="text-button" disabled={busy} onClick={() => {setEditingRequest(r);setMessage(r.message);setRequestItem(r.menuItemId ? String(r.menuItemId) : '');setActionError('');setRequestOpen(true);}}>Edit request</button><button className="text-button" disabled={busy} onClick={async () => {if(!window.confirm('Withdraw this food request?'))return;setBusy(true);try{await foodRequestApi.withdraw(r.id);setRequests(all=>all.map(x=>x.id===r.id?{...x,status:'CANCELLED'}:x));setHistoryError('');}catch(e){setHistoryError(errorMessage(e));}finally{setBusy(false);}}}>Withdraw</button></>}</div>)}
       </section>}
     </div>
   );

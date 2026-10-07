@@ -24,6 +24,7 @@ public class CreateMenuItemRequest {
     private BigDecimal price;
 
     @Size(max=500)
+    @jakarta.validation.constraints.Pattern(regexp = "^(https?://[^\\s]+|/(?!/)[^\\s]*)?$", message = "Use an HTTP(S) image URL or a local image path")
     private String imageUrl;
     @Min(1) @Max(240)
     private int preparationMinutes = 15;

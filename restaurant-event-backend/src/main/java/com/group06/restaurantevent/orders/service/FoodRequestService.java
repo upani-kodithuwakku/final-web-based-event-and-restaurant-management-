@@ -68,6 +68,31 @@ public class FoodRequestService {
         return toResponse(requestRepository.save(request));
     }
 
+    @Transactional
+    public FoodRequestResponse update(Long id, String email, CreateFoodRequestRequest req) {
+        FoodRequest request = ownedOpen(id, email);
+        request.setMessage(req.getMessage().trim()); request.setMenuItemId(null); request.setItemName(null);
+        if (req.getMenuItemId() != null) {
+            MenuItem item = menuService.findItem(req.getMenuItemId());
+            if (!item.isActive()) throw new ResourceNotFoundException("Menu item is no longer listed");
+            request.setMenuItemId(item.getId()); request.setItemName(item.getName());
+        }
+        return toResponse(requestRepository.save(request));
+    }
+
+    @Transactional
+    public void withdraw(Long id, String email) {
+        FoodRequest request = ownedOpen(id, email);
+        request.setStatus(FoodRequestStatus.CANCELLED); requestRepository.save(request);
+    }
+
+    private FoodRequest ownedOpen(Long id, String email) {
+        FoodRequest request = requestRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Food request not found"));
+        if (!request.getCustomerId().equals(findUserByEmail(email).getId())) throw new com.group06.restaurantevent.common.exception.ForbiddenException("Access denied");
+        if (request.getStatus() != FoodRequestStatus.OPEN) throw new com.group06.restaurantevent.common.exception.ConflictException("Only open requests can be changed or withdrawn");
+        return request;
+    }
+
     private User findUserByEmail(String email) {
         return userRepository.findByEmailAndIsActiveTrue(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
